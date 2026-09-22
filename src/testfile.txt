@@ -1,0 +1,7 @@
+int main() {
+    if(1 & 2)
+    {
+        printf("For Super Compiler!\n");
+    }
+    return 0;
+}
