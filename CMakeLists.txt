@@ -1,13 +1,15 @@
-cmake_minimum_required(VERSION 4.1)
-project(code)
+cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 14)
+project(Compiler LANGUAGES CXX)
 
-include_directories(src/front-end)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(code
-        src/front-end/compileError.hpp
-        src/front-end/Lexer.cpp
-        src/front-end/token.hpp
-        src/Compile.cpp
-        src/front-end/Lexer.hpp)
+add_executable(Compiler
+        Compile.cpp
+        front-end/Lexer.cpp
+)
+
+target_include_directories(Compiler PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/front-end
+)

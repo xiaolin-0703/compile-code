@@ -3,17 +3,17 @@
 
 class compileError {
     private:
-        int lineNum;
-        char errorType;
+         int lineNum;
+         char errorType;
 
     public:
         compileError(int _lineNum,char errorType) : lineNum(_lineNum), errorType(errorType) {}
 
-        int getLineNum() {
+         int getLineNum() const {
             return lineNum;
         }
 
-        char getErrorType() {
+         char getErrorType() const  {
             return errorType;
         }
 

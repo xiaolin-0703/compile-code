@@ -1,6 +1,6 @@
 #include <unordered_map>
 #include <string>
-#include "token.hpp"
+#include "Token.hpp"
 #include "Lexer.hpp"
 #include <vector>
 #include "compileError.hpp"
@@ -82,7 +82,6 @@ const std::unordered_map<std::string, std::string> tokenType = {
 
         void Lexer::addToken(const std::string& word, int lineNum) {
             auto it = tokenType.find(word);
-
             // 关键字、运算符、分隔符
             if (it != tokenType.end()) {
                 tokens.emplace_back(word, it->second, lineNum);
@@ -183,14 +182,14 @@ const std::unordered_map<std::string, std::string> tokenType = {
                
                 if (currentChar == '"') {
                     std::string strConst;
-                    strConst += currentChar; // Add the opening quote
+                    strConst += currentChar;
                     currentIndex++;
                     while (currentIndex < sourceCode.length() && sourceCode[currentIndex] != '"') {
                         strConst += sourceCode[currentIndex];
                         currentIndex++;
                     }
                     if (currentIndex < sourceCode.length()) {
-                        strConst += sourceCode[currentIndex]; // Add the closing quote
+                        strConst += sourceCode[currentIndex];
                         currentIndex++;
                     }
                     return strConst;
@@ -198,15 +197,13 @@ const std::unordered_map<std::string, std::string> tokenType = {
                 
                 if (currentChar == '/') {
                     if (currentIndex + 1 < sourceCode.length() && sourceCode[currentIndex + 1] == '/') {
-                        // Single-line comment
-                        currentIndex += 2; // Skip the "//"
+                        currentIndex += 2;
                         while (currentIndex < sourceCode.length() && sourceCode[currentIndex] != '\n') {
                             currentIndex++;
                         }
-                        continue; // Skip to the next iteration
+                        continue;
                     } else if (currentIndex + 1 < sourceCode.length() && sourceCode[currentIndex + 1] == '*') {
-                        // Multi-line comment
-                        currentIndex += 2; // Skip the "/*"
+                        currentIndex += 2;
                         while (currentIndex + 1 < sourceCode.length() && !(sourceCode[currentIndex] == '*' && sourceCode[currentIndex + 1] == '/')) {
                             if (sourceCode[currentIndex] == '\n') {
                                 lineNum++;
@@ -214,7 +211,7 @@ const std::unordered_map<std::string, std::string> tokenType = {
                             currentIndex++;
                         }
                         if (currentIndex + 1 < sourceCode.length()) {
-                            currentIndex += 2; // Skip the "*/"
+                            currentIndex += 2;
                         }
                         continue; 
                     }    

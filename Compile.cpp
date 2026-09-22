@@ -8,7 +8,7 @@
 
 
 int main() {
-    std::ifstream inputFile("../src/testfile.txt");
+    std::ifstream inputFile("testfile.txt");
 
     if (!inputFile.is_open()) {
         std::cerr << "无法打开 testfile.txt" << std::endl;
@@ -22,18 +22,25 @@ int main() {
     const std::vector<Token>& tokens = lexer.getTokens();
     const std::vector<compileError>& errors = lexer.getErrors();
     if (!errors.empty()) {
-        for (auto i:errors) {
-            i.outError();
-            return 0;
+        std::ofstream errorFile("error.txt");
+        if (!errorFile.is_open()) {
+            return 1;
         }
-    }
-    for (const Token& token : tokens) {
-        std::cout
-            << token.getType()
-            << " "
-            << token.getWord()
-            << std::endl;
+        for (const auto& error : errors) {
+            errorFile << error.getLineNum()
+                      << ' '
+                      << error.getErrorType()
+                      << '\n';
+        }
+        return 0;
     }
 
+    std::ofstream lexerFile("lexer.txt");
+    if (!lexerFile.is_open()) {
+        return 1;
+    }
+    for (const auto& token : tokens) {
+        lexerFile << token.getType() << ' ' << token.getWord() << '\n';
+    }
     return 0;
 }
