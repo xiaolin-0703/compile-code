@@ -1,0 +1,6 @@
+# ninja log v7
+5	1193	8131315600848446	CMakeFiles/Compiler.dir/Compile.cpp.obj	cb555a88a8c12953
+29	2079	8131315601102659	CMakeFiles/Compiler.dir/front-end/Lexer.cpp.obj	8e47e7d1846ea718
+2080	2678	8131315621602923	Compiler.exe	1508789b5fffe705
+10	1094	8131316244998648	CMakeFiles/Compiler.dir/Compile.cpp.obj	cb555a88a8c12953
+1096	1622	8131316255857218	Compiler.exe	1508789b5fffe705

@@ -1,0 +1,3 @@
+F:/learn/threeup/compile/code/cmake-build-codex/CMakeFiles/Compiler.dir
+F:/learn/threeup/compile/code/cmake-build-codex/CMakeFiles/edit_cache.dir
+F:/learn/threeup/compile/code/cmake-build-codex/CMakeFiles/rebuild_cache.dir

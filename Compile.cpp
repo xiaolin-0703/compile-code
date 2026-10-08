@@ -3,7 +3,7 @@
 #include <sstream>
 #include <string>
 
-#include "front-end/compileError.hpp"
+#include "compileError.hpp"
 #include "front-end/Lexer.hpp"
 
 
@@ -14,6 +14,7 @@ int main() {
         std::cerr << "无法打开 testfile.txt" << std::endl;
         return 1;
     }
+
     std::stringstream buffer;
     buffer << inputFile.rdbuf();
     std::string sourceCode = buffer.str();
@@ -22,6 +23,7 @@ int main() {
     const std::vector<Token>& tokens = lexer.getTokens();
     const std::vector<compileError>& errors = lexer.getErrors();
     if (!errors.empty()) {
+        std::ofstream("lexer.txt", std::ios::trunc).close();
         std::ofstream errorFile("error.txt");
         if (!errorFile.is_open()) {
             return 1;
@@ -35,12 +37,16 @@ int main() {
         return 0;
     }
 
+    std::ofstream("error.txt", std::ios::trunc).close();
     std::ofstream lexerFile("lexer.txt");
     if (!lexerFile.is_open()) {
         return 1;
     }
     for (const auto& token : tokens) {
-        lexerFile << token.getType() << ' ' << token.getWord() << '\n';
+        if (token.getType() == TokenType::END_OF_FILE) {
+            continue;
+        }
+        lexerFile << tokenTypeToString(token.getType()) << ' ' << token.getWord() << '\n';
     }
     return 0;
 }

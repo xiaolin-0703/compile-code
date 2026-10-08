@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "compileError.hpp"
+#include "../compileError.hpp"
 #include "Token.hpp"
 
 class Lexer {
