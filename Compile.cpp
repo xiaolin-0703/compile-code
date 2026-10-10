@@ -5,7 +5,7 @@
 
 #include "compileError.hpp"
 #include "front-end/Lexer.hpp"
-
+#include "front-end/Parser.hpp"
 
 int main() {
     std::ifstream inputFile("testfile.txt");
@@ -22,6 +22,9 @@ int main() {
     Lexer lexer(sourceCode);
     const std::vector<Token>& tokens = lexer.getTokens();
     const std::vector<compileError>& errors = lexer.getErrors();
+    
+    Parser parser(tokens);
+
     if (!errors.empty()) {
         std::ofstream("lexer.txt", std::ios::trunc).close();
         std::ofstream errorFile("error.txt");
