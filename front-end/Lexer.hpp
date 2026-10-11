@@ -15,7 +15,7 @@ public:
 
     const std::vector<Token>& getTokens() const;
     const std::vector<compileError>& getErrors() const;
-
+    
 private:
     std::string sourceCode;
     std::size_t currentIndex;

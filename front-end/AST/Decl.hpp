@@ -37,13 +37,12 @@ public:
 };
 
 
-class VariableDef {
+class VarDef {
 public:
     Ident ident;
     ExprPtr arraySize;
     std::optional<Init> initValue;
-
-    VariableDef(
+    VarDef(
         Ident ident,
         ExprPtr arraySize = nullptr,
         std::optional<Init> initValue = std::nullopt
@@ -53,26 +52,44 @@ public:
           initValue(std::move(initValue)) {}
 };
 
-class VarDecl final : public Decl;
-class ConstDecl final : public Decl;
-
-
-class VarDecl final : public Decl {
-public:
-    BasicType type;
-    bool isStatic;
-    std::vector<VariableDef> varDefs;
-
-    VarDecl(BasicType type, bool isStatic, std::vector<VariableDef> varDefs)
-        : type(type), isStatic(isStatic), varDefs(std::move(varDefs)) {}
+class ConstDef {
+public:    
+    Ident ident;
+    ExprPtr arraySize;
+    Init initValue; // 常量必须有初值
+    ConstDef(
+        Ident ident,
+        ExprPtr arraySize,
+        Init initValue
+    )
+        : ident(std::move(ident)),
+          arraySize(std::move(arraySize)),
+          initValue(std::move(initValue)) {}
 };
 
-class ConstDecl : public Decl {
-public:
-    BasicType type;
-    std::vector<VariableDef> constDefs;
+class VarDecl final : public Decl {
+public:    
+    BType type;
+    bool isStatic;
+    std::vector<VarDef> definitions;
 
-    ConstDecl(BasicType type, std::vector<VariableDef> constDefs)
-        : type(type), constDefs(std::move(constDefs)) {}
+    VarDecl(BType type,bool isStatic,std::vector<VarDef> definitions)
+    : type(type),isStatic(isStatic),
+    definitions(std::move(definitions))
+    {}
+    
+};
+
+class ConstDecl final : public Decl {
+public:
+    BType type;
+    std::vector<ConstDef> definitions;
+
+    ConstDecl(
+        BType type,
+        std::vector<ConstDef> definitions
+    )
+        : type(type),
+          definitions(std::move(definitions)) {}
 };
 

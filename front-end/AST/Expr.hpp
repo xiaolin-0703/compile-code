@@ -67,6 +67,7 @@ public:
         : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
 };
 
+//函数调用表达式
 class CallExpr final : public Expr {
 public:
     Ident functionName;
@@ -76,6 +77,7 @@ public:
         : functionName(std::move(functionName)), arguments(std::move(arguments)) {}
 };
 
+// 类型转换表达式
 class CastExpr final : public Expr {
 public:
     BasicType targetType;

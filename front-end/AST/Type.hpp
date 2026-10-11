@@ -5,3 +5,9 @@ enum class BasicType {
     Char,
     Void
 };
+
+enum class BType {
+    Int,
+    Char
+};
+
