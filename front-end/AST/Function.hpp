@@ -10,12 +10,12 @@
 
 class FuncParam {
 public:
-    BasicType type;
+    BType type;
     Ident identifier;
     bool isArray;
 
     FuncParam(
-        BasicType type,
+        BType type,
         Ident identifier,
         bool isArray
     )
@@ -27,13 +27,13 @@ public:
 
 class FuncDef : public ASTNode {
 public:
-    BasicType returnType;
+    FuncType returnType;
     Ident identifier;
     std::vector<FuncParam> parameters;
     BlockStmt body;
 
     FuncDef(
-        BasicType returnType,
+        FuncType returnType,
         Ident identifier,
         std::vector<FuncParam> parameters,
         BlockStmt body

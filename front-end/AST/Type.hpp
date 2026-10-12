@@ -11,3 +11,9 @@ enum class BType {
     Char
 };
 
+enum class FuncType {
+    Int,
+    Char,
+    Void
+};
+

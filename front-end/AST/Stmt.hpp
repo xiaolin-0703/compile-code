@@ -70,7 +70,6 @@ public:
 class BreakStmt : public Stmt {
 public:
     Token breakToken;
-
     explicit BreakStmt(Token breakToken)
         : breakToken(std::move(breakToken)) {}
 };
@@ -79,7 +78,6 @@ public:
 class ContinueStmt : public Stmt {
 public:
     Token continueToken;
-
     explicit ContinueStmt(Token continueToken)
         : continueToken(std::move(continueToken)) {}
 };
@@ -110,10 +108,8 @@ public:
 class CaseStmt : public ASTNode {
 public:
     Token caseToken;
-
     std::optional<Token> value;//case对应的值
     std::vector<StmtPtr> statements;//case条件成立时的代码
-
     CaseStmt(
         Token caseToken,
         std::optional<Token> value,

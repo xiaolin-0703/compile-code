@@ -1,5 +1,6 @@
 #pragma once
 
+#include <complex.h>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -115,6 +116,83 @@ class Parser {
             // 解析函数定义的逻辑
             // 这里需要根据具体的语法规则实现函数定义的解析
             // 返回一个 FuncDef 对象
+            //函数定义 FuncDef → FuncType Ident '(' [FuncFParams] ')' Block
+            FuncType funType = parseFunType();
+            if (!check(TokenType::IDENFR)) {
+                throw std::runtime_error("不是ident!!");
+            }
+            Ident ident = parseIdent();
+            std::vector<FuncParam> func_params;
+            if (match(TokenType::LPARENT)) {
+               func_params = parseFuncParams();
+                expect(TokenType::RPARENT);
+            }
+            expect(TokenType::SEMICN);
+            BlockStmt body = parseBlock();
+            return FuncDef(
+                funType,
+                std::move(ident),
+                std::move(func_params),
+                std::move(body));
+        }
+
+        BlockStmt parseBlock() {
+            //语句块 Block → '{' { BlockItem } '}'
+            expect(TokenType::LBRACE);
+            std::vector<BlockItemPtr> blockItems;
+            while (cur_pos < token_size && !check(TokenType::RBRACE)
+                && !check(TokenType::END_OF_FILE)) {
+                blockItems.push_back(parseBlockItem());
+            }
+            int closingBraceLine = current().getLineNum();
+            expect(TokenType::RBRACE);
+            return BlockStmt(std::move(blockItems),closingBraceLine);
+        }
+
+        std::vector<FuncParam> parseFuncParams() {
+            // 函数形参表 FuncFParams → FuncFParam { ',' FuncFParam } // 1.花括号内重复0次 2.
+            // 花括号内重复多次(花括号内重复>=2次，即，⾄少出现3次FuncFParam)
+            // 函数形参 FuncFParam → BType Ident ['[' ']']
+            std::vector<FuncParam> params;
+            params.push_back(parseFuncParam());
+            while (match(TokenType::COMMA)) {
+                params.push_back(parseFuncParam());
+            }
+            return std::move(params);
+        }
+
+        FuncParam parseFuncParam() {
+            // 函数形参 FuncFParam → BType Ident ['[' ']']
+            BType type = parseBType();
+            Ident ident = parseIdent();
+            bool isArray = false;
+            if (match(TokenType::LBRACK)) {
+                isArray = true;
+                expect(TokenType::RBRACK);
+            }
+            return FuncParam(
+                type,std::move(ident),isArray);
+        }
+
+        Ident parseIdent() {
+            if (!check(TokenType::IDENFR)) {
+                throw std::runtime_error("Expected identifier for function definition.");
+            }
+            Ident ident(current());
+            next();
+            return std::move(ident);
+        }
+
+        FuncType parseFunType() {
+            if (match(TokenType::INTTK)) {
+                return FuncType::Int;
+            } else if (match(TokenType::CHARTK)) {
+                return FuncType::Char;
+            } else if (match(TokenType::VOIDTK)) {
+                return FuncType::Void;
+            } else {
+                throw std::runtime_error("不是FunType！！");
+            }
         }
 
         MainFuncDef parseMainFuncDef() {
@@ -131,10 +209,8 @@ class Parser {
             return parseVarDecl();
         }
 
-
         //常量定义
         ConstDef parseConstDef() {
-            
             if (!check(TokenType::IDENFR)) {
                 throw std::runtime_error("Expected identifier for constant definition.");
             }
@@ -279,12 +355,186 @@ class Parser {
             // 解析语句的逻辑
             // 这里需要根据具体的语法规则实现语句的解析
             // 返回一个 StmtPtr 对象
+//             语句 Stmt → LVal '=' Exp ';' // 每种类型的语句都要覆盖
+// | [Exp] ';' // 有⽆Exp两种情况；printf函数调⽤
+// | Block
+// | 'if' '(' Cond ')' Stmt [ 'else' Stmt ] // 1.有else 2.⽆else
+// | 'while' '(' Cond ')' Stmt // while循环语句
+// | 'switch' '(' Exp ')' '{' { CaseStmt } '}' // switch语句，需覆盖不同case情况
+// | 'break' ';'
+// | 'continue' ';'
+// | 'return' [Exp] ';' // 1.有Exp 2.⽆Exp
+// | 'printf' '(' StringConst { ',' Exp } ')' ';' // 1.有Exp 2.⽆Exp
+            if (check(TokenType::IFTK)) {
+                return parseIfStmt();
+            }
+            if (check(TokenType::WHILETK)) {
+                return parseWhileStmt();
+            }
+            if (check(TokenType::SWITCHTK)) {
+                return parseSwitchStmt();
+            }
         }
 
+
+        StmtPtr parseSwitchStmt() {
+            //'switch' '(' Exp ')' '{' { CaseStmt } '}'
+            expect(TokenType::SWITCHTK);
+            expect(TokenType::LPARENT);
+            ExprPtr expr = parseExp();
+            expect(TokenType::RPARENT);
+            expect(TokenType::LBRACE);
+            std::vector<CaseStmt> cases;
+            while (match(TokenType::CASETK) || match(TokenType::DEFAULTTK)) {
+                cases.push_back(parseCaseStmt());
+            }
+            expect(TokenType::RBRACE);
+            return std::make_unique<SwitchStmt>(std::move(expr), std::move(cases));
+        }
+
+        CaseStmt parseCaseStmt() {
+           // Case语句 CaseStmt → 'case' Number ':' { Stmt } | 'default' ':' { Stmt } //
+           // 1.case语句 2.default语句
+            Token lableToken = current();
+            std::optional<Token> value = std::nullopt;
+            if (check(TokenType::CASETK)) {
+                next();
+                if (!check(TokenType::INTCON) &&
+                !check(TokenType::CHARCON)) {
+                    throw std::runtime_error(
+                        "Expected number after 'case'."
+                    );
+                }
+                value = current();
+                next();
+                expect(TokenType::COLON);
+
+             } else if (check(TokenType::DEFAULTTK)) {
+                 next();
+                 value = std::nullopt;
+                 expect(TokenType::COLON);
+             } else {
+                 throw std::runtime_error("不是caseStmt!!");
+             }
+            std::vector<StmtPtr> statements;
+            while (!check(TokenType::CASETK) &&
+                !check(TokenType::DEFAULTTK) &&
+                !check(TokenType::RBRACE) &&
+                !check(TokenType::END_OF_FILE)) {
+                    statements.push_back(parseStmt());
+                }
+            return CaseStmt(
+            std::move(lableToken),
+            std::move(value),
+            std::move(statements)
+            );
+        }
+
+        StmtPtr parseWhileStmt() {
+           // 'while' '(' Cond ')' Stmt // while循环语句
+            expect(TokenType::WHILETK);
+            expect(TokenType::LPARENT);
+            ExprPtr condition = parseCond();
+            expect(TokenType::RPARENT);
+            StmtPtr body = parseStmt();
+            return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+        }
+
+        StmtPtr parseIfStmt() {
+            expect(TokenType::IFTK);
+            expect(TokenType::LPARENT);
+            ExprPtr condition = parseCond();
+            expect(TokenType::RPARENT);
+            //'if' '(' Cond ')' Stmt [ 'else' Stmt ] // 1.有else 2.⽆else
+            StmtPtr thenBranch = parseStmt();
+            StmtPtr elseBranch;
+            if (match(TokenType::ELSETK)) {
+                elseBranch = parseStmt();
+            }
+            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch));
+        }
+
+        ExprPtr parseCond() {
+            return parseLOrExp();
+        }
+
+    //逻辑或
+        ExprPtr parseLOrExp() {
+            //逻辑或表达式 LOrExp → LAndExp | LOrExp '||' LAndExp
+            ExprPtr left = parseLAndExp();
+            while (check(TokenType::OR)) {
+                Token op = current();
+                next();
+                ExprPtr right = parseLAndExp();
+                left = std::make_unique<BinaryExpr>(
+                    std::move(left),
+                    std::move(op),
+                    std::move(right)
+                );
+            }
+            return left;
+        }
+
+    //逻辑与
+        ExprPtr parseLAndExp() {
+            ExprPtr left = parseEqExp();
+            while (check(TokenType::AND)) {
+                Token op = current();
+                next();
+                ExprPtr right = parseEqExp();
+                left = std::make_unique<BinaryExpr>(
+                    std::move(left),
+                    std::move(op),
+                    std::move(right)
+                );
+            }
+            return left;
+        }
+        //相等表达式
+        ExprPtr parseEqExp() {
+            ExprPtr left = parseRelExp();
+            while (check(TokenType::EQL) ||
+                   check(TokenType::NEQ)) {
+                Token op = current();
+                next();
+                ExprPtr right = parseRelExp();
+                left = std::make_unique<BinaryExpr>(
+                    std::move(left),
+                    std::move(op),
+                    std::move(right)
+                );
+                   }
+            return left;
+        }
+        //关系表达式
+        ExprPtr parseRelExp() {
+            ExprPtr left = parseAddExp();
+            while (check(TokenType::LSS) ||
+                   check(TokenType::LEQ) ||
+                   check(TokenType::GRE) ||
+                   check(TokenType::GEQ)) {
+                Token op = current();
+                next();
+                ExprPtr right = parseAddExp();
+                left = std::make_unique<BinaryExpr>(
+                    std::move(left),
+                    std::move(op),
+                    std::move(right)
+                );
+                   }
+            return left;
+        }
+    //解析一个项，是stmt还是decl
         BlockItemPtr parseBlockItem() {
-            // 解析块项的逻辑
-            // 这里需要根据具体的语法规则实现块项的解析
             // 返回一个 BlockItemPtr 对象
+            //语句块项 BlockItem → Decl | Stmt
+            if (check(TokenType::CONSTTK) ||
+                check(TokenType::STATICTK) ||
+                check(TokenType::INTTK) ||
+                check(TokenType::CHARTK)) {
+                return parseDecl();
+            }
+            return parseStmt();
         }
 
         // 解析加法表达式
