@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -8,8 +9,8 @@
 #include "front-end/Parser.hpp"
 
 int main() {
+ /*---------------------前端阶段----------*/
     std::ifstream inputFile("testfile.txt");
-
     if (!inputFile.is_open()) {
         std::cerr << "无法打开 testfile.txt" << std::endl;
         return 1;
@@ -21,12 +22,20 @@ int main() {
     inputFile.close();
     Lexer lexer(sourceCode);
     const std::vector<Token>& tokens = lexer.getTokens();
-    const std::vector<compileError>& errors = lexer.getErrors();
-    
     Parser parser(tokens);
+    CompUnit ast = parser.parse();
+
+    std::vector<compileError> errors = lexer.getErrors();
+    const auto& parserErrors = parser.getErrors();
+    errors.insert(errors.end(), parserErrors.begin(), parserErrors.end());
+    std::stable_sort(errors.begin(), errors.end(),
+        [](const compileError& lhs, const compileError& rhs) {
+            return lhs.getLineNum() < rhs.getLineNum();
+        });
 
     if (!errors.empty()) {
         std::ofstream("lexer.txt", std::ios::trunc).close();
+        std::ofstream("parser.txt", std::ios::trunc).close();
         std::ofstream errorFile("error.txt");
         if (!errorFile.is_open()) {
             return 1;
@@ -39,7 +48,6 @@ int main() {
         }
         return 0;
     }
-
     std::ofstream("error.txt", std::ios::trunc).close();
     std::ofstream lexerFile("lexer.txt");
     if (!lexerFile.is_open()) {
@@ -50,6 +58,14 @@ int main() {
             continue;
         }
         lexerFile << tokenTypeToString(token.getType()) << ' ' << token.getWord() << '\n';
+    }
+
+    std::ofstream parserFile("parser.txt");
+    if (!parserFile.is_open()) {
+        return 1;
+    }
+    for (const auto& line : parser.getOutput()) {
+        parserFile << line << '\n';
     }
     return 0;
 }

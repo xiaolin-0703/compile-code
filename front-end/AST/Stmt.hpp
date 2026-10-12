@@ -27,10 +27,10 @@ public:
 //赋值语句
 class AssignStmt : public Stmt {
 public:
-    LValExpr target;
+    LValExprPtr target;
     ExprPtr value;
 
-    AssignStmt(LValExpr target, ExprPtr value)
+    AssignStmt(LValExprPtr target, ExprPtr value)
         : target(std::move(target)), value(std::move(value)) {}
 };
 

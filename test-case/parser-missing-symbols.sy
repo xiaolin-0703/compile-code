@@ -1,0 +1,16 @@
+const int ok = 1;
+const int broken[2 = {1, 2};
+int sum(int value {
+    return value
+}
+
+int main( {
+    int values[2 = {3, 4};
+    values[0 = sum(values[1]);
+    values[0] = sum(values[1])
+    if (values[0] > 0 {
+        printf("%d", values[0];
+    }
+    sum(;
+    return 0
+}

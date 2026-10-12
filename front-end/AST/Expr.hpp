@@ -48,6 +48,8 @@ public:
     }
 };
 
+using LValExprPtr = std::unique_ptr<LValExpr>;
+
 class UnaryExpr final : public Expr {
 public:
     Token op;
@@ -80,10 +82,9 @@ public:
 // 类型转换表达式
 class CastExpr final : public Expr {
 public:
-    BasicType targetType;
+    BType targetType;
     ExprPtr expr;
-
-    CastExpr(BasicType targetType, ExprPtr expr)
+    CastExpr(BType targetType, ExprPtr expr)
         : targetType(targetType), expr(std::move(expr)) {}
 };
 

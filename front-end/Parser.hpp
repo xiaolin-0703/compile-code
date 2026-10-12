@@ -1,10 +1,12 @@
 #pragma once
 
-#include <complex.h>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
+#include "../compileError.hpp"
 #include "Token.hpp"
 #include "AST/AST.hpp"
 
@@ -19,10 +21,20 @@ class Parser {
             return parseCompUnit();
         }
 
+        const std::vector<compileError>& getErrors() const {
+            return errors;
+        }
+
+        const std::vector<std::string>& getOutput() const {
+            return output;
+        }
+
     private:
         std::vector<Token> tokens;
         std::size_t cur_pos = 0;
         std::size_t token_size = tokens.size();
+        std::vector<compileError> errors;
+        std::vector<std::string> output;
 
         Token& current() {
             return tokens[cur_pos];
@@ -35,7 +47,7 @@ class Parser {
             if (current().getType() != expectedType) {
                 return false;
             }
-            ++cur_pos; // 匹配成功，同时消费当前 token
+            next(); // 匹配成功，同时消费并记录当前 token
             return true;
         }   
 
@@ -49,15 +61,25 @@ class Parser {
                 return true;
             }
 
-            std::cerr
-                << "第 " << current().getLineNum()
-                << " 行：期望 "
-                << tokenTypeToString(expectedType)
-                << "，实际得到 "
-                << tokenTypeToString(current().getType())
-                << '\n';
+            char errorType = '\0';
+            if (expectedType == TokenType::SEMICN) {
+                errorType = 'i';
+            } else if (expectedType == TokenType::RPARENT) {
+                errorType = 'j';
+            } else if (expectedType == TokenType::RBRACK) {
+                errorType = 'k';
+            }
 
-            return false;
+            if (errorType != '\0') {
+                errors.emplace_back(previousLine(), errorType);
+                return false; // 不消费当前 token，让上层继续解析
+            }
+
+            std::ostringstream message;
+            message << "line " << current().getLineNum()
+                    << ": expected " << tokenTypeToString(expectedType)
+                    << ", got " << tokenTypeToString(current().getType());
+            throw std::runtime_error(message.str());
         }
 
         Token& peek(std::size_t offset = 1) {
@@ -68,47 +90,67 @@ class Parser {
             return tokens[peek_pos];
         }
 
-        void next(std::size_t offset = 1) {
-             if (cur_pos < token_size) {
+        void next() {
+            if (cur_pos < token_size) {
+                if (!check(TokenType::END_OF_FILE)) {
+                    output.emplace_back(
+                        std::string(tokenTypeToString(current().getType())) +
+                        " " + current().getWord());
+                }
                 ++cur_pos;
             }
         }
 
-        void rewind(std::size_t count = 1) {
-            if (count > cur_pos) {
-                cur_pos = 0;
-            } else {
-                cur_pos -= count;
+        int previousLine() const {
+            if (cur_pos == 0 || tokens.empty()) {
+                return tokens.empty() ? 1 : tokens.front().getLineNum();
             }
+            return tokens[cur_pos - 1].getLineNum();
+        }
+
+        void mark(const char* nonTerminal) {
+            output.emplace_back("<" + std::string(nonTerminal) + ">");
+        }
+
+        bool isMainFunctionStart() {
+            return check(TokenType::INTTK) &&
+                   peek().getType() == TokenType::MAINTK;
+        }
+
+        bool isFunctionDefinitionStart() {
+            return check(TokenType::VOIDTK) ||
+                   ((check(TokenType::INTTK) || check(TokenType::CHARTK)) &&
+                    peek().getType() == TokenType::IDENFR &&
+                    peek(2).getType() == TokenType::LPARENT);
+        }
+
+        bool isDeclarationStart() {
+            if (check(TokenType::CONSTTK) || check(TokenType::STATICTK)) {
+                return true;
+            }
+            return (check(TokenType::INTTK) || check(TokenType::CHARTK)) &&
+                   !isMainFunctionStart() &&
+                   !isFunctionDefinitionStart();
         }
 
         CompUnit parseCompUnit() {
             std::vector<DeclPtr> declarations;
             std::vector<FuncDef> functions;
             MainFuncDef mainFunction(BlockStmt({ }, 0));
-
-            while (cur_pos < token_size) {
-                if (current().getType() == TokenType::CONSTTK || current().getType() == TokenType::INTTK ||
-                 current().getType() == TokenType::CHARTK || current().getType() == TokenType::STATICTK) {
-                    auto decl = parseDecl();
-                    if (decl) {
-                        declarations.push_back(std::move(decl));
-                    }
-                } else if (current().getType() == TokenType::VOIDTK || current().getType() == TokenType::INTTK || current().getType() == TokenType::CHARTK) {
-                    // 解析函数定义
-                    auto funcDef = parseFuncDef();
-                    if (funcDef ) {
-                        functions.push_back(std::move(*funcDef));
-                    }
-                } else if (current().getType() == TokenType::MAINTK) {
-                    // 解析主函数定义
-                    mainFunction = parseMainFuncDef();
-                } else {
-                    // 未知的语法结构，跳过当前 token
-                    ++cur_pos;
-                }
+            while (isDeclarationStart()) {
+                declarations.push_back(parseDecl());
             }
-
+            while (isFunctionDefinitionStart()) {
+                functions.push_back(parseFuncDef());
+            }
+            if (!isMainFunctionStart()) {
+                throw std::runtime_error("missing main function");
+            }
+            mainFunction = parseMainFuncDef();
+            if (!check(TokenType::END_OF_FILE)) {
+                throw std::runtime_error("unexpected token after main function");
+            }
+            mark("CompUnit");
             return CompUnit(std::move(declarations), std::move(functions), std::move(mainFunction));
         }
 
@@ -123,17 +165,19 @@ class Parser {
             }
             Ident ident = parseIdent();
             std::vector<FuncParam> func_params;
-            if (match(TokenType::LPARENT)) {
-               func_params = parseFuncParams();
-                expect(TokenType::RPARENT);
+            expect(TokenType::LPARENT);
+            if (check(TokenType::INTTK) || check(TokenType::CHARTK)) {
+                func_params = parseFuncParams();
             }
-            expect(TokenType::SEMICN);
+            expect(TokenType::RPARENT);
             BlockStmt body = parseBlock();
-            return FuncDef(
+            FuncDef result(
                 funType,
                 std::move(ident),
                 std::move(func_params),
                 std::move(body));
+            mark("FuncDef");
+            return result;
         }
 
         BlockStmt parseBlock() {
@@ -146,7 +190,9 @@ class Parser {
             }
             int closingBraceLine = current().getLineNum();
             expect(TokenType::RBRACE);
-            return BlockStmt(std::move(blockItems),closingBraceLine);
+            BlockStmt result(std::move(blockItems),closingBraceLine);
+            mark("Block");
+            return result;
         }
 
         std::vector<FuncParam> parseFuncParams() {
@@ -158,7 +204,8 @@ class Parser {
             while (match(TokenType::COMMA)) {
                 params.push_back(parseFuncParam());
             }
-            return std::move(params);
+            mark("FuncFParams");
+            return params;
         }
 
         FuncParam parseFuncParam() {
@@ -170,8 +217,10 @@ class Parser {
                 isArray = true;
                 expect(TokenType::RBRACK);
             }
-            return FuncParam(
+            FuncParam result(
                 type,std::move(ident),isArray);
+            mark("FuncFParam");
+            return result;
         }
 
         Ident parseIdent() {
@@ -180,25 +229,37 @@ class Parser {
             }
             Ident ident(current());
             next();
-            return std::move(ident);
+            return ident;
         }
 
         FuncType parseFunType() {
+            FuncType result;
             if (match(TokenType::INTTK)) {
-                return FuncType::Int;
+                result = FuncType::Int;
             } else if (match(TokenType::CHARTK)) {
-                return FuncType::Char;
+                result = FuncType::Char;
             } else if (match(TokenType::VOIDTK)) {
-                return FuncType::Void;
+                result = FuncType::Void;
             } else {
                 throw std::runtime_error("不是FunType！！");
             }
+            mark("FuncType");
+            return result;
         }
 
         MainFuncDef parseMainFuncDef() {
             // 解析主函数定义的逻辑
             // 这里需要根据具体的语法规则实现主函数定义的解析
             // 返回一个 MainFuncDef 对象
+            //主函数定义 MainFuncDef → 'int' 'main' '(' ')' Block
+            expect(TokenType::INTTK);
+            expect(TokenType::MAINTK);
+            expect(TokenType::LPARENT);
+            expect(TokenType::RPARENT);
+            BlockStmt body = parseBlock();
+            MainFuncDef result(std::move(body));
+            mark("MainFuncDef");
+            return result;
         }
 
         //定义区
@@ -225,14 +286,18 @@ class Parser {
            
             expect(TokenType::ASSIGN);
             Init InitValue = parseConstInitval();
-            return ConstDef(std::move(ident), std::move(arraySize), std::move(InitValue));
+            ConstDef result(std::move(ident), std::move(arraySize), std::move(InitValue));
+            mark("ConstDef");
+            return result;
         }
 
         Init parseConstInitval() {
             if (check(TokenType::STRCON)) {
                 Token stringLiteral = current();
                 next();
-                return Init(std::move(stringLiteral));
+                Init result(std::move(stringLiteral));
+                mark("ConstInitVal");
+                return result;
             }
 
             if (match(TokenType::LBRACE)) {
@@ -244,16 +309,22 @@ class Parser {
                     }
                 }
                 expect(TokenType::RBRACE);
-                return Init(std::move(elements));
+                Init result(std::move(elements));
+                mark("ConstInitVal");
+                return result;
             }
 
             ExprPtr expression = parseConstExp();
-            return Init(std::move(expression));
+            Init result(std::move(expression));
+            mark("ConstInitVal");
+            return result;
         }
 
         //常量表达式
         ExprPtr parseConstExp() {
-            return parseAddExp(); // 假设常量表达式可以是加法表达式
+            ExprPtr result = parseAddExp();
+            mark("ConstExp");
+            return result;
         }
 
         DeclPtr parseConstDecl() {
@@ -267,7 +338,9 @@ class Parser {
 
             expect(TokenType::SEMICN);
 
-            return std::make_unique<ConstDecl>(type, std::move(definitions));
+            auto result = std::make_unique<ConstDecl>(type, std::move(definitions));
+            mark("ConstDecl");
+            return result;
         }
 
         BType parseBType() {
@@ -297,9 +370,11 @@ class Parser {
             }
             expect(TokenType::SEMICN);
             
-            return std::make_unique<VarDecl>(type,
+            auto result = std::make_unique<VarDecl>(type,
                 isStatic,
                 std::move(definitions));
+            mark("VarDecl");
+            return result;
         }
 
         VarDef parseVarDef() {
@@ -321,11 +396,13 @@ class Parser {
             if (match(TokenType::ASSIGN)) {
                  initVar = parseInitVal();
             }
-            return VarDef(
+            VarDef result(
             std::move(ident),
             std::move(arraySize),
             std::move(initVar)
              );
+            mark("VarDef");
+            return result;
         }
 
         Init parseInitVal() {
@@ -334,7 +411,9 @@ class Parser {
             if (check(TokenType::STRCON)) {
                 Token stringLiteral = current();
                 next();
-                return Init(std::move(stringLiteral));
+                Init result(std::move(stringLiteral));
+                mark("InitVal");
+                return result;
             }
             if (match(TokenType::LBRACE)) {
                 std::vector<ExprPtr> elements;
@@ -345,10 +424,14 @@ class Parser {
                     }
                 }
                 expect(TokenType::RBRACE);
-                return Init(std::move(elements));
+                Init result(std::move(elements));
+                mark("InitVal");
+                return result;
             }
             ExprPtr expression = parseExp();
-            return Init(std::move(expression));
+            Init result(std::move(expression));
+            mark("InitVal");
+            return result;
         }
 
         StmtPtr parseStmt() {
@@ -365,17 +448,155 @@ class Parser {
 // | 'continue' ';'
 // | 'return' [Exp] ';' // 1.有Exp 2.⽆Exp
 // | 'printf' '(' StringConst { ',' Exp } ')' ';' // 1.有Exp 2.⽆Exp
+            StmtPtr result;
             if (check(TokenType::IFTK)) {
-                return parseIfStmt();
+                result = parseIfStmt();
+            } else if (check(TokenType::WHILETK)) {
+                result = parseWhileStmt();
+            } else if (check(TokenType::SWITCHTK)) {
+                result = parseSwitchStmt();
+            } else if (check(TokenType::BREAKTK)) {
+                result = parseBreakStmt();
+            } else if (check(TokenType::CONTINUETK)) {
+                result = parseContinueStmt();
+            } else if (check(TokenType::RETURNTK)) {
+                result = parseReturnStmt();
+            } else if (check(TokenType::PRINTFTK)) {
+                result = parsePrintfStmt();
+            } else if (check(TokenType::LBRACE)) {
+                result = std::make_unique<BlockStmt>(parseBlock());
+            } else if (isAssignmentStmt()) {
+                result = parseAssignStmt();
+            } else {
+                result = parseExprStmt();
             }
-            if (check(TokenType::WHILETK)) {
-                return parseWhileStmt();
-            }
-            if (check(TokenType::SWITCHTK)) {
-                return parseSwitchStmt();
-            }
+            mark("Stmt");
+            return result;
         }
 
+        StmtPtr parseExprStmt() {
+            //[Exp] ';'
+            ExprPtr expression;
+            if (canStartExpression()) {
+                expression = parseExp();
+            }
+            expect(TokenType::SEMICN);
+            return std::make_unique<ExprStmt>(std::move(expression));
+        }
+
+        StmtPtr parseAssignStmt() {
+            //LVal '=' Exp ';'
+            LValExprPtr target = parseLVal();
+            expect(TokenType::ASSIGN);
+            ExprPtr expression = parseExp();
+            expect(TokenType::SEMICN);
+            return std::make_unique<AssignStmt>(std::move(target),
+                std::move(expression));
+        }
+
+        bool isAssignmentStmt() const {
+            std::size_t pos = cur_pos;
+            if (pos >= token_size ||
+                tokens[pos].getType() != TokenType::IDENFR) {
+                return false;
+                }
+            ++pos;
+            if (pos < token_size &&
+                tokens[pos].getType() == TokenType::LBRACK) {
+                int bracketDepth = 1;
+                ++pos;
+                while (pos < token_size && bracketDepth > 0) {
+                    TokenType type = tokens[pos].getType();
+
+                    if (type == TokenType::LBRACK) {
+                        ++bracketDepth;
+                    } else if (type == TokenType::RBRACK) {
+                        --bracketDepth;
+                    } else if (type == TokenType::ASSIGN && bracketDepth == 1) {
+                        // a[exp = ...：把它识别为缺少 ']' 的赋值语句，
+                        // parseLVal() 会记录 k，并在 '=' 处继续解析。
+                        return true;
+                    }
+                    ++pos;
+                }
+                if (bracketDepth != 0) {
+                    return false;
+                }
+                }
+            return pos < token_size &&
+                   tokens[pos].getType() == TokenType::ASSIGN;
+        }
+
+        bool canStartExpression() const {
+            return check(TokenType::IDENFR) ||
+                   check(TokenType::LPARENT) ||
+                   check(TokenType::INTCON) ||
+                   check(TokenType::CHARCON) ||
+                   check(TokenType::PLUS) ||
+                   check(TokenType::MINU) ||
+                   check(TokenType::NOT);
+        }
+
+        StmtPtr parsePrintfStmt() {
+            // 'printf' '(' StringConst { ',' Exp } ')' ';'
+            if (!check(TokenType::PRINTFTK)) {
+                throw std::runtime_error("不是Printf!!!");
+            }
+            Token printfToken = current();
+            next();
+            expect(TokenType::LPARENT);
+            if (!check(TokenType::STRCON)) {
+                throw std::runtime_error("Expected string constant after 'printf('.");
+            }
+            Token strConst = current();
+            next();
+            std::vector<ExprPtr> arguments;
+            while (match(TokenType::COMMA)) {
+                arguments.push_back(parseExp());
+            }
+            expect(TokenType::RPARENT);
+            expect(TokenType::SEMICN);
+            return std::make_unique<PrintfStmt>(std::move(printfToken),
+                std::move(strConst),
+                std::move(arguments));
+        }
+
+        StmtPtr parseReturnStmt() {
+            // | 'return' [Exp] ';'
+            if (!check(TokenType::RETURNTK)) {
+                throw std::runtime_error("不是Return!!");
+            }
+            Token returnToken = current();
+            next();
+            ExprPtr exp;
+            if (canStartExpression()) {
+                exp = parseExp();
+            }
+            expect(TokenType::SEMICN);
+            return std::make_unique<ReturnStmt>(std::move(returnToken),std::move(exp));
+        }
+
+        StmtPtr parseContinueStmt() {
+           // 'continue' ';'
+            if (!check(TokenType::CONTINUETK)) {
+                throw std::runtime_error("不是Continue!!");
+            }
+            Token token = current();
+            next();
+            expect(TokenType::SEMICN);
+            return std::make_unique<ContinueStmt>(std::move(token));
+        }
+
+        StmtPtr parseBreakStmt() {
+            //'break' ';'
+            if (!check(TokenType::BREAKTK)) {
+                throw std::runtime_error("不是Break!!!");
+            }
+            Token token = current();
+            next();
+            expect(TokenType::SEMICN);
+            return std::make_unique<BreakStmt>(std::move(token));
+        }
 
         StmtPtr parseSwitchStmt() {
             //'switch' '(' Exp ')' '{' { CaseStmt } '}'
@@ -385,7 +606,7 @@ class Parser {
             expect(TokenType::RPARENT);
             expect(TokenType::LBRACE);
             std::vector<CaseStmt> cases;
-            while (match(TokenType::CASETK) || match(TokenType::DEFAULTTK)) {
+            while (check(TokenType::CASETK) || check(TokenType::DEFAULTTK)) {
                 cases.push_back(parseCaseStmt());
             }
             expect(TokenType::RBRACE);
@@ -407,6 +628,7 @@ class Parser {
                 }
                 value = current();
                 next();
+                mark("Number");
                 expect(TokenType::COLON);
 
              } else if (check(TokenType::DEFAULTTK)) {
@@ -423,11 +645,13 @@ class Parser {
                 !check(TokenType::END_OF_FILE)) {
                     statements.push_back(parseStmt());
                 }
-            return CaseStmt(
+            CaseStmt result(
             std::move(lableToken),
             std::move(value),
             std::move(statements)
             );
+            mark("CaseStmt");
+            return result;
         }
 
         StmtPtr parseWhileStmt() {
@@ -451,11 +675,14 @@ class Parser {
             if (match(TokenType::ELSETK)) {
                 elseBranch = parseStmt();
             }
-            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch));
+            return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch),
+                std::move(elseBranch));
         }
 
         ExprPtr parseCond() {
-            return parseLOrExp();
+            ExprPtr result = parseLOrExp();
+            mark("Cond");
+            return result;
         }
 
     //逻辑或
@@ -463,6 +690,7 @@ class Parser {
             //逻辑或表达式 LOrExp → LAndExp | LOrExp '||' LAndExp
             ExprPtr left = parseLAndExp();
             while (check(TokenType::OR)) {
+                mark("LOrExp");
                 Token op = current();
                 next();
                 ExprPtr right = parseLAndExp();
@@ -472,6 +700,7 @@ class Parser {
                     std::move(right)
                 );
             }
+            mark("LOrExp");
             return left;
         }
 
@@ -479,6 +708,7 @@ class Parser {
         ExprPtr parseLAndExp() {
             ExprPtr left = parseEqExp();
             while (check(TokenType::AND)) {
+                mark("LAndExp");
                 Token op = current();
                 next();
                 ExprPtr right = parseEqExp();
@@ -488,6 +718,7 @@ class Parser {
                     std::move(right)
                 );
             }
+            mark("LAndExp");
             return left;
         }
         //相等表达式
@@ -495,6 +726,7 @@ class Parser {
             ExprPtr left = parseRelExp();
             while (check(TokenType::EQL) ||
                    check(TokenType::NEQ)) {
+                mark("EqExp");
                 Token op = current();
                 next();
                 ExprPtr right = parseRelExp();
@@ -504,6 +736,7 @@ class Parser {
                     std::move(right)
                 );
                    }
+            mark("EqExp");
             return left;
         }
         //关系表达式
@@ -513,6 +746,7 @@ class Parser {
                    check(TokenType::LEQ) ||
                    check(TokenType::GRE) ||
                    check(TokenType::GEQ)) {
+                mark("RelExp");
                 Token op = current();
                 next();
                 ExprPtr right = parseAddExp();
@@ -522,6 +756,7 @@ class Parser {
                     std::move(right)
                 );
                    }
+            mark("RelExp");
             return left;
         }
     //解析一个项，是stmt还是decl
@@ -541,11 +776,13 @@ class Parser {
         ExprPtr parseAddExp() { 
             ExprPtr left = parseMulExp();
             while (check(TokenType::PLUS) || check(TokenType::MINU)) {
+                mark("AddExp");
                 Token op = current();
                 next(); 
                 ExprPtr right = parseMulExp();
                 left = std::make_unique<BinaryExpr>(std::move(left), std::move(op), std::move(right));
             }
+            mark("AddExp");
             return left;
         }
 
@@ -555,11 +792,13 @@ class Parser {
             // 返回一个 ExprPtr 对象
             ExprPtr left = parseUnaryExp();
             while (check(TokenType::MULT) || check(TokenType::DIV) || check(TokenType::MOD)) {
+                mark("MulExp");
                 Token op = current();
                 next(); 
                 ExprPtr right = parseUnaryExp();
                 left = std::make_unique<BinaryExpr>(std::move(left), std::move(op), std::move(right));
             }
+            mark("MulExp");
             return left;
         }
 
@@ -567,26 +806,27 @@ class Parser {
             // 解析一元表达式的逻辑
             // 这里需要根据具体的语法规则实现一元表达式的解析
             // 返回一个 ExprPtr 对象
+            ExprPtr result;
             if (check(TokenType::PLUS) || check(TokenType::MINU) || check(TokenType::NOT)) {
                 Token op = current();
                 next();
+                mark("UnaryOp");
                 ExprPtr expr = parseUnaryExp();
                 if (!expr) {
                     throw std::runtime_error("Expected expression after unary operator.");
                 }
-                return std::make_unique<UnaryExpr>(std::move(op), std::move(expr));
+                result = std::make_unique<UnaryExpr>(std::move(op), std::move(expr));
+            } else if (check(TokenType::IDENFR) && peek().getType() == TokenType::LPARENT) {
+                result = parseCallExpr();
+            } else if (check(TokenType::LPARENT) &&
+                       (peek().getType() == TokenType::INTTK ||
+                        peek().getType() == TokenType::CHARTK)) {
+                result = parseCastExpr();
+            } else {
+                result = parsePrimaryExp();
             }
-
-            if (check(TokenType::IDENFR) && peek().getType() == TokenType::LPARENT) {
-                return parseCallExpr();
-            } 
-            
-            if (check(TokenType::LPARENT) &&
-                (peek().getType() == TokenType::INTTK ||
-                peek().getType() == TokenType::CHARTK)) {
-                return parseCastExpr();
-            }
-            return parsePrimaryExp();
+            mark("UnaryExp");
+            return result;
         }
 
         //解析函数调用表达式
@@ -597,26 +837,23 @@ class Parser {
                 throw std::runtime_error("Expected '(' after function name.");
             }
             std::vector<ExprPtr> arguments;
-            if (!check(TokenType::RPARENT)) {
+            if (canStartExpression()) {
                 arguments.push_back(parseExp());
                 while (check(TokenType::COMMA)) {
                     next();
                     arguments.push_back(parseExp());
                 }
+                mark("FuncRParams");
             }
-            if (!match(TokenType::RPARENT)) {//j类错误
-                throw std::runtime_error("Expected ')' after function arguments.");
-            }
+            expect(TokenType::RPARENT);
             return std::make_unique<CallExpr>(std::move(functionName), std::move(arguments));
         }
 
         //解析类型转换表达式
         ExprPtr parseCastExpr() {
-           
             if (!match(TokenType::LPARENT)) {
                 throw std::runtime_error("缺少左括号！！");
             }
-            
             BType targetType;
             if (match(TokenType::INTTK)) {
                 targetType = BType::Int;
@@ -625,14 +862,9 @@ class Parser {
             } else {
                 throw std::runtime_error("不是BType");
             }
-
             expect(TokenType::RPARENT);
-
             ExprPtr operand = parseUnaryExp();
-
-            return std::make_unique<CastExpr>(targetType,operand);
-
-        
+            return std::make_unique<CastExpr>(targetType,std::move(operand));
         }
 
         ExprPtr parsePrimaryExp() {
@@ -642,25 +874,29 @@ class Parser {
             if (match(TokenType::LPARENT)) {
                 ExprPtr expr = parseExp();
                 expect(TokenType::RPARENT);
+                mark("PrimaryExp");
                 return expr;
             }
-
             if(check(TokenType::IDENFR)) {
-                return parseLVal();
+                ExprPtr result = parseLVal();
+                mark("PrimaryExp");
+                return result;
             }
-
             if (check(TokenType::INTCON)) {
                 Token literal = current();
                 next();
-                return std::make_unique<LiteralExpr>(
-                std::move(literal));
+                mark("Number");
+                auto result = std::make_unique<LiteralExpr>(std::move(literal));
+                mark("PrimaryExp");
+                return result;
             }
             if (check(TokenType::CHARCON)) {
                 Token literal = current();
                 next();
-
-                return std::make_unique<LiteralExpr>(
-                    std::move(literal));
+                mark("Number");
+                auto result = std::make_unique<LiteralExpr>(std::move(literal));
+                mark("PrimaryExp");
+                return result;
             }
             throw std::runtime_error("不是primaryExp");
             return nullptr;
@@ -668,10 +904,12 @@ class Parser {
 
         //普通表达式其实就是加法表达式
         ExprPtr parseExp() {
-            return parseAddExp();
+            ExprPtr result = parseAddExp();
+            mark("Exp");
+            return result;
         }
 
-        ExprPtr parseLVal() {
+        LValExprPtr parseLVal() {
             if (!check(TokenType::IDENFR)) {
                 throw std::runtime_error("不是Lval！！");
             }
@@ -686,12 +924,12 @@ class Parser {
                 expect(TokenType::RBRACK);
 
             }
-
-            return std::make_unique<LValExpr>(
+            auto result = std::make_unique<LValExpr>(
                 std::move(ident),
                 std::move(index));
+            mark("LVal");
+            return result;
         }
-    
         
 
 };

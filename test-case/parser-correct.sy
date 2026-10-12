@@ -1,0 +1,29 @@
+const int LIMIT = 10, seeds[2] = {1, 2};
+static char message[3] = "ok";
+
+int add(int value, int values[]) {
+    int result = value + values[0];
+    return result;
+}
+
+int main() {
+    int numbers[2] = {3, 4};
+    int answer = add(1, numbers);
+    if (answer > 0 && numbers[0] != 0 || !answer) {
+        answer = answer + 1;
+    } else {
+        answer = 0;
+    }
+    while (answer < LIMIT) {
+        answer = answer + 1;
+        break;
+    }
+    switch (answer) {
+        case 10:
+            printf("%d", answer);
+            break;
+        default:
+            printf("%c", message[0]);
+    }
+    return (int)'a';
+}
