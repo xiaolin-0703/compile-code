@@ -902,13 +902,11 @@ class Parser {
             return nullptr;
         }
 
-        //普通表达式其实就是加法表达式
         ExprPtr parseExp() {
             ExprPtr result = parseAddExp();
             mark("Exp");
             return result;
         }
-
         LValExprPtr parseLVal() {
             if (!check(TokenType::IDENFR)) {
                 throw std::runtime_error("不是Lval！！");
@@ -930,6 +928,4 @@ class Parser {
             mark("LVal");
             return result;
         }
-        
-
 };

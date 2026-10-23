@@ -5,6 +5,7 @@
 #include <string>
 
 #include "compileError.hpp"
+#include "Visitor.hpp"
 #include "front-end/Lexer.hpp"
 #include "front-end/Parser.hpp"
 
@@ -24,6 +25,7 @@ int main() {
     const std::vector<Token>& tokens = lexer.getTokens();
     Parser parser(tokens);
     CompUnit ast = parser.parse();
+    Vistor vistor(ast);
 
     std::vector<compileError> errors = lexer.getErrors();
     const auto& parserErrors = parser.getErrors();

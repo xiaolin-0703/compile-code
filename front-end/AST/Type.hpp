@@ -17,3 +17,16 @@ enum class FuncType {
     Void
 };
 
+enum class ExprType {
+    Int,
+    Char,
+    IntArray,
+    CharArray,
+    Void,
+    Error
+};
+
+struct ExprInfo {
+    ExprType type;
+    int line;
+};

@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-
+~
 $codeRoot = Split-Path -Parent $PSScriptRoot
 $compiler = Join-Path $codeRoot "cmake-build-codex/Compiler.exe"
 if (-not (Test-Path -LiteralPath $compiler)) {

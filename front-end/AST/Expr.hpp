@@ -11,7 +11,7 @@
 
 class Expr : public ASTNode {
 public:
-    ~Expr() override = default;
+    virtual ~Expr() override = default;
 };
 
 using ExprPtr = std::unique_ptr<Expr>;
