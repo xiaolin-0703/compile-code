@@ -43,6 +43,18 @@ public:
         return nullptr;
     }
 
+    void output(std::ostream& out) const {
+        for (const auto& table : tables) {
+            for (const auto& name : table.declarationOrder) {
+                const Symbol& symbol = table.directory.at(name);
+                out << table.tableid << ' '
+                    << symbol.getName() << ' '
+                    << symbol.getTypeName() << '\n';
+            }
+        }
+    }
+
+
 
 private:
     std::vector<SymbolTable> tables;
