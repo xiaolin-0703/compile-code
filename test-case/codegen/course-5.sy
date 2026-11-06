@@ -1,0 +1,32 @@
+int side_effect = 0;
+
+int bump() {
+    side_effect = side_effect + 1;
+    return 1;
+}
+
+int main() {
+    printf("24373148\n");
+    int value = get_int();
+    int score = 0;
+    if (0 && bump()) {
+        score = 100;
+    }
+    if (1 || bump()) {
+        score = score + 1;
+    }
+    if (value < 5 && value > -5) {
+        score = score + 1;
+    }
+    if (value <= 0 || value >= 10) {
+        score = score + 1;
+    }
+    if (!value && side_effect != 1) {
+        score = score + 1;
+    }
+    if (value != 0 && bump()) {
+        score = score + 10;
+    }
+    printf("score=%d side=%d\n", score, side_effect);
+    return 0;
+}

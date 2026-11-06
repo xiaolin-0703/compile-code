@@ -1,0 +1,10 @@
+char step(char x) { return x + (char)1; }
+int main() {
+    char top = (char)255;
+    char low = (char)0;
+    int comparison = 0;
+    if (top > (char)127) comparison = 1;
+    printf("%d %d %d %d %d %d\n", (int)step(top), (int)(low - (char)1), comparison,
+           (int)(top / (char)2), (int)(top % (char)2), (int)(char)(-1));
+    return 0;
+}

@@ -1,0 +1,13 @@
+int tick() { static int n = 5; n = n + 1; return n; }
+int slot(int index) {
+    static int values[3] = {1};
+    values[index] = values[index] + 1;
+    return values[index];
+}
+int main() {
+    int i = 0;
+    int result = 0;
+    while (i < 3) { int current = i; result = result + current; i = i + 1; }
+    printf("%d %d %d %d %d\n", tick(), tick(), slot(0), slot(1), result);
+    return 0;
+}

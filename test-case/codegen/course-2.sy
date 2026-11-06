@@ -1,0 +1,25 @@
+int main() {
+    printf("24373148\n");
+    int n = get_int();
+    int result = 0;
+    if (n <= 0)
+        result = 1;
+    if (n > 0)
+        if (n != 2)
+            result = n * 2;
+        else
+            result = 20;
+    {
+        int n = 3;
+        result = result + n;
+    }
+    result;
+    printf("mark\n");
+    int eq = 0;
+    if (result == 11) {
+        eq = 1;
+    }
+    
+    printf("result=%d eq=%d\n", result, eq);
+    return 0;
+}

@@ -1,0 +1,36 @@
+int classify(int x);
+
+void ping() {
+    printf("ready\n");
+}
+
+void ping();
+
+int classify(int x) {
+    if (x < 0) {
+        return -1;
+    } elif (x == 0) {
+        return 0;
+    } elif (x < 10) {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+int main() {
+    ping();
+    printf("%d %d %d %d\n", classify(-3), classify(0), classify(5), classify(12));
+
+    if (classify(5) == 1) {
+        printf("if only\n");
+    }
+
+    if (0) {
+        printf("unexpected\n");
+    } elif (1) {
+        printf("elif only\n");
+    }
+
+    return 0;
+}

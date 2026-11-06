@@ -46,6 +46,7 @@ struct ParamInfo {
 
 class Symbol {
 public:
+    std::size_t id = 0; // 0 表示尚未分配，供 SemanticModel 与 IR 绑定使用。
     Ident ident;
     SymbolKind kind;
     BasicType type;

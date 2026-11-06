@@ -1,0 +1,12 @@
+int main() {
+    int number = get_int();
+    char character = get_char();
+    char text[8];
+    get_string(text, 8);
+    printf("%d %c %s\n", number + 1, character, text);
+    put_int(12);
+    put_char('!');
+    put_string(text);
+    put_char('\n');
+    return 0;
+}

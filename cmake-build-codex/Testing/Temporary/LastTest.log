@@ -1,0 +1,19 @@
+Start testing: Nov 01 15:24 中国标准时间
+----------------------------------------------------------
+1/1 Testing: frontend_extensions
+1/1 Test: frontend_extensions
+Command: "F:/learn/threeup/compile/code/cmake-build-codex/frontend_extensions_tests.exe"
+Directory: F:/learn/threeup/compile/code/cmake-build-codex
+"frontend_extensions" start time: Nov 01 15:24 中国标准时间
+Output:
+----------------------------------------------------------
+219 frontend checks passed
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"frontend_extensions" end time: Nov 01 15:24 中国标准时间
+"frontend_extensions" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 01 15:24 中国标准时间

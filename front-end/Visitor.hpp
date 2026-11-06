@@ -5,6 +5,7 @@
 #include "./AST/AST.hpp"
 #include "../compileError.hpp"
 #include "semantic/SymbolManager.hpp"
+#include "semantic/SemanticModel.hpp"
 
 class Vistor {
 public:
@@ -21,8 +22,13 @@ public:
               return symbols;
        }
 
+       const SemanticModel& getSemanticModel() const {
+              return semanticModel;
+       }
+
 private:
        SymbolManager symbols;
+       SemanticModel semanticModel;
        std::vector<compileError> errors;
        FuncType currentReturnType = FuncType::Void;
        int loopDepth = 0;
@@ -30,7 +36,8 @@ private:
        std::unordered_map<std::string, Symbol> builtinFunctions;
 
        //添加一个符号
-       void addSymbol(Symbol symbol) {
+       void addSymbol(Symbol symbol, const Ident* declaration = nullptr) {
+              semanticModel.addSymbol(symbol, declaration);
               if (!symbols.declare(symbol)) {
                      errors.emplace_back(symbol.ident.getLineNum(),'b');
               }
@@ -52,10 +59,9 @@ private:
               auto add = [&](const std::string& name,
                              FuncType returnType,
                              std::vector<ParamInfo> parameters) {
-                     builtinFunctions.emplace(
-                         name,
-                         Symbol(Ident(name, 0), returnType, std::move(parameters))
-                     );
+                     Symbol symbol(Ident(name, 0), returnType, std::move(parameters));
+                     semanticModel.addSymbol(symbol);
+                     builtinFunctions.emplace(name, std::move(symbol));
               };
 
               add("get_int", FuncType::Int, {});
@@ -117,7 +123,7 @@ private:
                   function.returnType,
                   std::move(parameters)
               );
-              addSymbol(std::move(functionSymbol));
+              addSymbol(std::move(functionSymbol), &function.identifier);
               symbols.pushScope();//进入函数作用域
               FuncType previousReturnType = currentReturnType;
               currentReturnType = function.returnType;
@@ -133,7 +139,7 @@ private:
                          false,
                          false
                      );
-                     addSymbol(std::move(parameterSymbol));
+                     addSymbol(std::move(parameterSymbol), &param.identifier);
               }
               visitBlockItems(function.body);
               if (function.returnType != FuncType::Void) {
@@ -433,7 +439,7 @@ private:
                             errors.emplace_back(size.line, 'e');
                      }
               }
-              addSymbol(symbol1);
+              addSymbol(symbol1, &def.ident);
               visitInit(def.initValue,type,kind == SymbolKind::Array);
        }
 
@@ -455,7 +461,7 @@ private:
                             errors.emplace_back(size.line, 'e');
                      }
               }
-              addSymbol(std::move(symbol));
+              addSymbol(std::move(symbol), &def.ident);
               if (def.initValue) {
                      visitInit(*def.initValue,type,kind == SymbolKind::Array);
               }
@@ -463,6 +469,8 @@ private:
        }
 
        ExprInfo visitExpr (const Expr& expr) {
+              // lambda 是局部函数；保留原有分派方式，并统一保存表达式类型。
+              auto analyzeExpression = [&]() -> ExprInfo {
               if (const auto* literal = dynamic_cast<const LiteralExpr*>(&expr) ) {
                     return visitLiteralExpr(*literal);
               }
@@ -483,6 +491,10 @@ private:
               }
               throw std::runtime_error("不是一个表达式！！");
               return {ExprType::Error,0};
+              };
+              ExprInfo info = analyzeExpression();
+              semanticModel.setType(expr, info.type);
+              return info;
        }
 
        ExprInfo visitCastExpr (const CastExpr& expr) {
@@ -498,6 +510,7 @@ private:
        ExprInfo visitCallExpr(const CallExpr& expr) {
               int line = expr.functionName.getLineNum();
               const Symbol* function = resolveSymbol(expr.functionName);
+              if (function != nullptr) semanticModel.bind(expr, function->id);
 
               std::vector<ExprInfo> arguments;
               bool argumentError = false;
@@ -617,6 +630,7 @@ private:
               const Ident idnet1 = expr.getIdent();
               const int lineNum = idnet1.getLineNum();
               const Symbol* symbol1 = resolveSymbol(idnet1);
+              if (symbol1 != nullptr) semanticModel.bind(expr, symbol1->id);
               const auto& index = expr.getIndex();
 
               ExprInfo indexInfo{ExprType::Error,lineNum};

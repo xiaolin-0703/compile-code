@@ -1,0 +1,53 @@
+const int CONST_EMPTY[3] = {}, TABLE[5] = {2, 4, 6}, SCALE = 1;
+int global_array[4], global_init[4] = {1, 2, 3, 4}, global_scalar;
+
+int sum_part(int values[], int start, int count) {
+    int index = 0;
+    int total = 0;
+    while (index < count) {
+        total = total + values[start + index];
+        index = index + 1;
+    }
+    return total;
+}
+
+void set_first(int values[]) {
+    values[0] = 9;
+    return;
+}
+
+int main() {
+    printf("24373148\n");
+    int empty_values[3] = {};
+    int raw_values[3];
+    int numbers[5] = {1, 2, 3, 4, 5};
+    int result = sum_part(numbers, numbers[0], 3);
+    raw_values[0] = CONST_EMPTY[0];
+    raw_values[1] = TABLE[1];
+    raw_values[2] = global_init[2];
+    set_first(numbers);
+    switch (result) {
+    }
+    switch (result) {
+        case 99:
+        case 9:
+            printf("matched ");
+            break;
+        case 10:
+            printf("ten ");
+            break;
+        default:
+            printf("other ");
+    }
+    switch (SCALE) {
+        case 1:
+            printf("fall=");
+        case 2:
+            printf("%d", numbers[0]);
+            break;
+        default:
+            printf("bad");
+    }
+    printf(" raw=%d,%d,%d empty=%d\n", raw_values[0], raw_values[1], raw_values[2], empty_values[0]);
+    return 0;
+}

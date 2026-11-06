@@ -1,0 +1,34 @@
+int hits = 0;
+int hit() { hits = hits + 1; return 1; }
+int main() {
+    int i = 0;
+    int result = 0;
+    if (0 && hit()) result = 100;
+    if (1 || hit()) result = 0;
+    if (!hit() && hit()) result = 100;
+    while (i < 5) {
+        i = i + 1;
+        switch (i) {
+            case 1: continue;
+            case 2: result = result + 2; break;
+            default: result = result + 10;
+        }
+        if (i == 4) break;
+        result = result + 1;
+    }
+    printf("%d %d %d\n", i, result, hits);
+    switch (2) {
+        case 0: result = 1;
+        default: result = 100;
+        case 2: result = result + 5;
+        case 3: result = result + 7; break;
+    }
+    printf("%d ", result);
+    switch (8) {
+        default: result = 100;
+        case 2: result = result + 5;
+        case 3: result = result + 7; break;
+    }
+    printf("%d\n", result);
+    return 0;
+}

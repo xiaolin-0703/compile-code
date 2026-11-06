@@ -1,0 +1,18 @@
+const int dims[3] = {2, 4};
+const int folded = dims[0] + dims[1];
+int global[dims[0]] = {5};
+int sum(int values[], int n) {
+    int result = 0;
+    int i = 0;
+    while (i < n) { result = result + values[i]; i = i + 1; }
+    return result;
+}
+void change(char text[]) { text[0] = 'Z'; return; }
+int main() {
+    int values[4] = {global[0], 2};
+    char text[5] = "ab";
+    char small[2] = "xyz";
+    change(text);
+    printf("%d %d %d %d %s %c%c\n", sum(values, 4), folded, global[1], dims[2], text, small[0], small[1]);
+    return 0;
+}

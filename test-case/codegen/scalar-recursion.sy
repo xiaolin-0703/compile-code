@@ -1,0 +1,16 @@
+const int base = 3;
+int global = 2;
+int factorial(int n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+int shadow(int value) {
+    { int value = 8; printf("%d ", value); }
+    return value;
+}
+int main() {
+    int base = 9;
+    printf("%d %d %d %d\n", base, global, factorial(5), shadow(4));
+    printf("%d %d\n", -7 / 3, -7 % 3);
+    return 0;
+}

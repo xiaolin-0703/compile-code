@@ -1,0 +1,40 @@
+const char BANNER[6] = "HELLO", LETTERS[4] = {'A', 'B', 'C', '\0'}, EMPTY_TEXT[2] = {};
+char greeting[4] = "Hi\n";
+
+char next_char(char value, char step, char upper) {
+    char result = value + step;
+    if (result > upper) {
+        result = value;
+    }
+    return result;
+}
+
+void print_word(char text[]) {
+    printf("%s", text);
+    return;
+}
+
+int main() {
+    printf("24373148\n");
+    char input = get_char();
+    char word[6] = "world";
+    char empty_chars[3] = {};
+    char local_chars[4] = {'x', 'y', 'z', '\0'};
+    char one = (char) 1;
+    char answer = next_char('A', one, 'Z');
+    int code = (int) input;
+    char back = (char) (code + 1);
+    switch (input) {
+        case 'A':
+            printf("case=A ");
+            break;
+        case 'Q':
+            printf("case=Q ");
+            break;
+        default:
+            printf("case=? ");
+    }
+    print_word(word);
+    printf(" %s %c %c %d %c %c %d\n", BANNER, answer, input, code, back, local_chars[1], (int) empty_chars[0]);
+    return 0;
+}

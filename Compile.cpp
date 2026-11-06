@@ -8,8 +8,13 @@
 #include "Visitor.hpp"
 #include "front-end/Lexer.hpp"
 #include "front-end/Parser.hpp"
+#include "middle-end/generation/IRGenerator.hpp"
+#include "middle-end/output/IRPrinter.hpp"
+#include "middle-end/output/IRVerifier.hpp"
 
 int main() {
+    // 每次编译先清空输出，即使读取/前端处理失败也不会遗留旧 IR。
+    std::ofstream("llvm_ir.txt", std::ios::trunc).close();
  /*---------------------前端阶段----------*/
     std::ifstream inputFile("testfile.txt");
     if (!inputFile.is_open()) {
@@ -82,6 +87,24 @@ int main() {
         return 1;
     }
     symbols.output(visitorFile);
+
+    /*---------------------中间代码生成阶段----------*/
+    try {
+        // Context 先创建、最后销毁，保证 Type 和 Constant 的指针一直有效。
+        ir::IRContext context;
+        ir::IRGenerator generator(context, vistor.getSemanticModel());
+        ir::Module& module = generator.generate(ast);
+        ir::IRVerifier().verify(module);
+        // 先在内存中完成打印，成功后一次性写入，避免留下半份 IR。
+        std::ostringstream irText;
+        ir::IRPrinter().print(module, irText);
+        std::ofstream irFile("llvm_ir.txt");
+        if (!irFile.is_open()) return 1;
+        irFile << irText.str();
+    } catch (const std::exception& error) {
+        std::cerr << "中间代码生成失败: " << error.what() << '\n';
+        return 1;
+    }
 
     return 0;
 }

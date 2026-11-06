@@ -1,0 +1,57 @@
+const int BASE = 2, LIMIT = 5, ZERO = 0;
+int global_uninit, global_value = 7, global_flag = 1;
+const int ONE = 1;
+void empty_block() {
+}
+
+int no_arg() {
+    return 3;
+}
+
+int combine(int a, int b, int c) {
+    int value = a + b * c;
+    value = value / 2;
+    value = value % 5;
+    return value;
+}
+
+void touch() {
+    global_uninit = global_uninit + ONE;
+    return;
+}
+
+int main() {
+    printf("24373148\n");
+    int input = get_int();
+    static int calls = 0;
+    int i = 0, sum = 0, temp;
+    ;
+    empty_block();
+    no_arg();
+    calls = calls + 1;
+    sum = combine(input, no_arg(), global_value);
+    temp = +sum + (-BASE);
+    if (temp >= ZERO) {
+        sum = temp + 10;
+    } else {
+        sum = 0 - temp;
+    }
+    while (i < LIMIT) {
+        i = i + 1;
+        if (i == 2) {
+            continue;
+        }
+        if (i > 3) {
+            break;
+        }
+        sum = sum + i;
+    }
+    touch();
+    touch();
+    {
+        int global_flag = 8;
+        sum = sum + global_flag - 8;
+    }
+    printf("calls=%d sum=%d global=%d zero=%d\n", calls, sum, global_uninit, ZERO);
+    return 0;
+}
