@@ -1,4 +1,4 @@
 {
   "programmingLanguage": "CPP",
-  "objectCode": "MIPS"
+  "objectCode": "LLVM"
 }

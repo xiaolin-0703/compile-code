@@ -1,4 +1,4 @@
-1#pragma once
+#pragma once
 
 #include "../ir/Instructions.hpp"
 #include <unordered_set>
