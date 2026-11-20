@@ -1,10 +1,10 @@
-# Type、Value 与中间代码生成
+# LLVM IR 与 MIPS 代码生成
 
-已完成当前 AST 到 LLVM IR 的生成链路，使用 C++17。Compile.cpp 在前端无错误时生成 llvm_ir.txt；有前端错误时清空 IR。包含变量/常量、数组、函数、显式转换、输入输出、if/while/switch、break/continue/return、短路求值与 static 局部变量。
+编译器使用 C++17，从工作目录读取 `testfile.txt`，生成提交用的 `mips.txt` 和调试用的 `llvm_ir.txt`。源程序有前端错误时，编译器写入 `error.txt`，清空两个代码文件。运行时输入由 MARS 执行汇编时读取。
 
 IR 实现全部放在对应的 .hpp 中。类内成员定义隐式 inline；需要在类外定义的函数显式 inline。Value 与 Use 的完整定义集中在 Value.hpp，Use.hpp 保留独立的包含入口，以避免循环包含。
 
-CMake 中 ir_core 是 INTERFACE 目标，仅提供头文件搜索路径。后续新增指令可以在对应 .hpp 中同时写声明和实现，使用处 include 后即可使用，无需注册新的 .cpp 编译单元。
+中端与后端都采用头文件实现。新增指令可以在对应的 `.hpp` 中同时写声明和实现，由使用处包含。
 
 成员变量使用普通驼峰命名，不添加末尾下划线；与参数同名时通过 this-> 区分。代码中的 `= delete` 表示禁止调用对应函数：这里禁止 Type、Value、Use 和 IRContext 的复制/移动，以保持类型身份及 IR 引用地址稳定；它不同于释放动态内存的 `delete pointer`。
 
@@ -141,4 +141,27 @@ ConstantInt 保存整数位模式：getBits 取得无符号位模式，getSigned
 
 测试位于 `test-case/ir/ir-core-tests.cpp`，覆盖类型/常量复用、重复使用、整体替换、操作数扩容和删除、跨 Context 误用、循环引用的批量断开。
 
-当前结构测试还有完整 IR 构造、替换/删除指令、phi 类型和 SSA 支配关系验证。test-case/codegen/run-codegen-tests.py 执行 12 个源程序，检查 LLVM 合法性、课程运行库链接和实际输出。后续 MIPS 与优化可直接从这套对象继续扩展。
+当前结构测试还有完整 IR 构造、替换/删除指令、phi 类型和 SSA 支配关系验证。test-case/codegen/run-codegen-tests.py 执行 12 个源程序，检查 LLVM 合法性、课程运行库链接和实际输出。
+
+## 5. 从 LLVM IR 到 MIPS
+
+`MipsLowering` 遍历校验后的 `ir::Module`，为算术、访存、跳转和调用选择 MIPS 指令。中间结果由虚拟寄存器表示，局部对象和调用参数先保留为抽象栈位置。LLVM 文本由独立的 `IRPrinter` 从同一个模块生成。
+
+- **数据和数组。** 全局变量与字符串进入 `.data`。函数的 `alloca` 对象放进当前栈帧。`getelementptr` 按元素大小缩放下标，`char` 使用 `lbu/sb`，`int` 使用 `lw/sw`。
+- **控制流。** 基本块对应汇编标签。`phi` 在进入目标块的边上复制，先暂存所有来源，再写入目标，避免回边上的复制互相覆盖。
+- **函数调用。** 前四个实参使用 `$a0–$a3`，其余放入调用者的栈帧，返回值用 `$v0`。调用其他函数的普通函数保存 `$ra`，因此递归每一层都有独立的局部对象和返回地址。课程 I/O 函数映射到 MARS 系统调用。
+- **栈布局与优化。** 编译器默认复用已经零扩展的值，用 `addiu` 处理可编码的加减常量和数组偏移，再删除跳向紧邻标签的无条件跳转。`LocalRegisterAllocator` 用 `$t3–$t8` 保存基本块内的中间值。跨控制流边、跨调用存活的值，以及寄存器不足时溢出的值仍用栈槽。`MipsPrinter` 计算剩余栈槽和局部对象的偏移，并展开超出 16 位立即数范围的地址。`--no-opt` 使用基线模式，也可用 `--opt` 显式开启优化。
+
+在 `code` 目录下用 PowerShell 编译和运行。
+
+```powershell
+g++ -std=c++17 -O2 -I. -Ifront-end Compile.cpp front-end/Lexer.cpp -o Compiler.exe
+.\Compiler.exe
+java -jar ../mars-2026-BUAA.jar --no-copyright --messages-to-stderr mips.txt
+```
+
+运行 MIPS 回归测试时，脚本会用独立的临时目录比较两种模式的标准输出。
+
+```powershell
+python test-case/mips/run-mips-tests.py --compiler .\Compiler.exe --mars ../mars-2026-BUAA.jar
+```

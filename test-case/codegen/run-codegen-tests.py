@@ -42,10 +42,10 @@ class Runtime:
             return value[0]
 
         def get_string(address, count):
-            # 与随课 libsysy.c 一致，读取一行并去掉换行符。
+            # 随课 libsysy.c 会在缓冲区有空间时存入换行符。
             data = self.input.readline().rstrip(b"\r\n")
             if count > 0:
-                data = data[:count - 1] + b"\0"
+                data = (data + b"\n")[:count - 1] + b"\0"
                 ctypes.memmove(address, data, len(data))
 
         self.bind("get_int", ctypes.c_int32, [], get_int)

@@ -1,0 +1,20 @@
+int fold(int depth, char c, int a, int b, char text[], int numbers[]) {
+    if (depth == 0) {
+        return a + b + (int)c + (int)text[0] + numbers[1];
+    }
+    return fold(depth - 1, c, a + 1, b + 2, text, numbers) + (int)c;
+}
+
+int main() {
+    char c = (char)255;
+    int numbers[2] = {-9, 4};
+    char text[2] = "Z";
+    char bytes[40000];
+    bytes[39999] = 'Q';
+    get_string(text, 0);
+    char input = get_char();
+    int result = fold(2, c, 4, 6, text, numbers);
+    printf("%d %c %c %d %d %d %d\n", result, input, bytes[39999],
+           -11 / 3, -11 % 3, (int)(c / (char)2), (int)(c % (char)2));
+    return 0;
+}

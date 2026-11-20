@@ -1,0 +1,21 @@
+int weigh(int a, int b, int c, int d, int e, int f, int g, int h) {
+    return a + 2 * b + 3 * c + 4 * d + 5 * e + 6 * f + 7 * g + 8 * h;
+}
+
+int adjust(int value) {
+    return value - 2;
+}
+
+int main() {
+    int n = get_int();
+    int i = 0;
+    int sum = 0;
+    while (i < n) {
+        sum = sum + i;
+        i = i + 1;
+    }
+    int weighted = weigh(i + 1, i + 2, i + 3, i + 4, i + 5, i + 6, i + 7, i + 8);
+    int acrossCall = i * 2 + adjust(n + 7);
+    printf("%d %d %d\n", sum, weighted, acrossCall);
+    return 0;
+}
