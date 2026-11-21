@@ -19,8 +19,11 @@ private:
     }
 public:
     explicit IRBuilder(IRContext& context) : context(context) {}
+
     void setBlock(BasicBlock* block) { this->block = block; }
+
     BasicBlock* getBlock() const { return block; }
+
     bool isTerminated() const { return block == nullptr || block->getTerminator() != nullptr; }
     AllocaInst* createAlloca(const Type* type) {
         auto instruction = std::make_unique<AllocaInst>(type);
@@ -28,6 +31,7 @@ public:
         block->getParent()->getEntry()->prependAlloca(std::move(instruction));
         return result;
     }
+
     Value* createLoad(Value* address) { return insert<LoadInst>(address); }
     void createStore(Value* value, Value* address) { insert<StoreInst>(value, address); }
     Value* createBinary(Opcode opcode, Value* left, Value* right) {

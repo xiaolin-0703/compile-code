@@ -62,24 +62,30 @@ class Function : public Value {
 private:
     std::vector<std::unique_ptr<Argument>> arguments;
     std::vector<std::unique_ptr<BasicBlock>> blocks;
+
 public:
     Function(const Type* type, std::string name) : Value(type, std::move(name)) {
         for (const Type* parameter : type->getParamTypes()) {
             arguments.push_back(std::make_unique<Argument>(parameter, this));
         }
     }
+
     ~Function() override { dropAllReferences(); }
+
     const Type* getReturnType() const { return getType()->getReturnType(); }
     const auto& getArguments() const { return arguments; }
     const auto& getBlocks() const { return blocks; }
     bool isDeclaration() const { return blocks.empty(); }
+
     BasicBlock* createBlock() {
         auto block = std::make_unique<BasicBlock>(getType()->getContext(), this);
         BasicBlock* result = block.get();
         blocks.push_back(std::move(block));
         return result;
     }
+
     BasicBlock* getEntry() const { return blocks.at(0).get(); }
+
     void dropAllReferences() {
         // 先断开整个函数的引用，才能安全销毁有回边的控制流图。
         for (const auto& block : blocks) block->dropAllReferences();
@@ -119,6 +125,7 @@ public:
     IRContext& getContext() const { return context; }
     const auto& getGlobals() const { return globals; }
     const auto& getFunctions() const { return functions; }
+
     Function* addFunction(const std::string& name, const Type* returnType,
                           const std::vector<const Type*>& parameters) {
         const Type* type = context.getFunctionType(returnType, parameters);
@@ -136,6 +143,7 @@ public:
         names[name] = result;
         return result;
     }
+
     Function* getFunction(const std::string& name) const {
         auto found = names.find(name);
         if (found == names.end()) throw std::logic_error("Unknown function: " + name);

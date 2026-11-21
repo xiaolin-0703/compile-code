@@ -81,7 +81,9 @@ private:
         SymbolId id = semanticModel.getDeclaration(ident);
         const Type* element = basicType(sourceType);
         std::int64_t length = size == nullptr ? 1 : constants.evaluate(*size);
-        if (length <= 0) throw std::logic_error("Array size must be positive");
+        if (length <= 0) {
+            throw std::logic_error("Array size must be positive");
+        }
         std::size_t count = static_cast<std::size_t>(length);
         const Type* storedType = size == nullptr ? element : context.getArrayType(element, count);
         Value* address;
@@ -126,6 +128,7 @@ private:
         }
     }
 
+    //解析申明
     void emitDecl(const Decl& declaration) {
         if (const auto* node = dynamic_cast<const VarDecl*>(&declaration)) {
             for (const auto& definition : node->definitions) {
@@ -279,7 +282,9 @@ private:
 
     void emitBlock(const BlockStmt& block) {
         for (const auto& item : block.blockItems) {
-            if (builder.isTerminated()) break;
+            if (builder.isTerminated()) {
+                break;
+            }
             emitStmt(*item);
         }
     }
@@ -398,9 +403,12 @@ public:
 
     Module& generate(const CompUnit& ast) {
         if (!module.getFunctions().empty()) throw std::logic_error("Generator can only run once");
-        addBuiltins();
-        for (const auto& declaration : ast.declarations) emitDecl(*declaration);
-        // 先登记函数签名，再生成函数体；自递归调用能找到对应 Function 对象。
+        addBuiltins();//初始化自带的函数
+        //Moudle加上全局变量
+        for (const auto& declaration : ast.declarations) {
+            emitDecl(*declaration);
+        }
+        //Module加上函数声明
         for (const auto& definition : ast.functions) {
             std::vector<const Type*> parameters;
             for (const auto& parameter : definition.parameters) {
@@ -409,8 +417,14 @@ public:
             }
             module.addFunction(definition.identifier.getName(), returnType(definition.returnType), parameters);
         }
+        //假如main
         module.addFunction("main", context.getInt32Type(), {});
-        for (const auto& definition : ast.functions) emitFunction(definition);
+
+        //开始解析函数
+        for (const auto& definition : ast.functions) {
+            emitFunction(definition);
+        }
+
         currentFunction = module.getFunction("main");
         builder.setBlock(currentFunction->createBlock());
         emitBlock(ast.mainFunction.body);

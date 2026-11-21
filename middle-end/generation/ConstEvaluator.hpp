@@ -11,7 +11,9 @@ private:
     std::unordered_map<SymbolId, std::vector<std::int64_t>> values;
 
     std::int64_t normalize(const Expr& expr, std::int64_t value) const {
-        if (semanticModel.getType(expr) == ExprType::Char) return static_cast<std::uint8_t>(value);
+        if (semanticModel.getType(expr) == ExprType::Char) {
+            return static_cast<std::uint8_t>(value);
+        }
         std::uint32_t bits = static_cast<std::uint32_t>(value);
         return bits < 0x80000000u ? static_cast<std::int64_t>(bits)
                                 : static_cast<std::int64_t>(bits) - 0x100000000LL;
@@ -34,6 +36,7 @@ public:
                                                             : static_cast<std::int64_t>(bits) - 0x100000000LL);
         }
     }
+
     std::int64_t evaluate(const Expr& expr) const {
         // dynamic_cast 按实际 AST 类型分派；不匹配时返回 nullptr。
         if (const auto* node = dynamic_cast<const LiteralExpr*>(&expr)) return literal(node->getLiteral());

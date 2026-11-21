@@ -105,11 +105,9 @@ public:
         return type;
     }
 
-    const Type* getFunctionType(
-        const Type* returnType,
-        const std::vector<const Type*>& paramTypes) {
+    const Type* getFunctionType( const Type* returnType, const std::vector<const Type*>& paramTypes) {
         requireLocalType(returnType);
-        if (!returnType->isVoid() && !returnType->isScalar()) {
+        if (!returnType->isVoid() && !returnType->isScalar()) {//既不是void也不是标量时报错
             throw std::invalid_argument("Unsupported function return type");
         }
         for (const Type* paramType : paramTypes) {
