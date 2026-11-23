@@ -118,7 +118,6 @@ int main(int argc, char* argv[]) {
             mips::LocalRegisterAllocator().run(program);
         }
 
-        // 生成完成后再写文件，避免代码生成异常时留下不完整的输出。
         std::ostringstream irText;
         ir::IRPrinter().print(module, irText);
         std::ostringstream mipsText;

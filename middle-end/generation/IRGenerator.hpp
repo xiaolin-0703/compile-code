@@ -31,18 +31,24 @@ private:
     const Type* basicType(BType type) const {
         return type == BType::Char ? context.getInt8Type() : context.getInt32Type();
     }
+
     const Type* returnType(FuncType type) const {
         if (type == FuncType::Void) return context.getVoidType();
         return type == FuncType::Char ? context.getInt8Type() : context.getInt32Type();
     }
+
     ConstantInt* integer(std::int64_t value) { return context.getInt(context.getInt32Type(), value); }
     Value* boolean(Value* value) {
         if (value->getType()->isInteger(1)) return value;
         return builder.createCompare("ne", value, context.getInt(value->getType(), 0));
     }
+
     void jumpIfOpen(BasicBlock* target) {
-        if (!builder.isTerminated()) builder.createBranch(target);
+        if (!builder.isTerminated()) {
+            builder.createBranch(target);
+        }
     }
+
     void addBuiltins() {
         const Type* i32 = context.getInt32Type();
         const Type* i8 = context.getInt8Type();

@@ -6,9 +6,11 @@ namespace ir {
 // 生成后检查图结构和 SSA 支配关系。throw 抛出内部错误，由编译入口统一报告。
 class IRVerifier {
 private:
+
     static void require(bool condition, const char* message) {
         if (!condition) throw std::logic_error(message);
     }
+
     void verifyTypes(const Instruction& instruction) const {
         const Type* type = instruction.getType();
         std::size_t count = instruction.getOperandCount();

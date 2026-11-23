@@ -292,12 +292,16 @@ class MipsLowering {
             case Opcode::SDiv: case Opcode::UDiv: case Opcode::SRem: case Opcode::URem:
                 lowerBinary(instruction);
                 break;
-            case Opcode::ICmp: lowerCompare(static_cast<const ir::ICmpInst&>(instruction)); break;
+            case Opcode::ICmp:
+                lowerCompare(static_cast<const ir::ICmpInst&>(instruction));
+                break;
             case Opcode::Trunc:
                 define("andi", result(instruction), {read(instruction.getOperand(0)), mask(type)});
                 break;
             case Opcode::ZExt:
-                if (!optimize) define("move", result(instruction), {read(instruction.getOperand(0))});
+                if (!optimize) {
+                    define("move", result(instruction), {read(instruction.getOperand(0))});
+                }
                 break;
             case Opcode::GetElementPtr: lowerGep(instruction); break;
             case Opcode::Call: lowerCall(static_cast<const ir::CallInst&>(instruction)); break;
@@ -315,7 +319,7 @@ class MipsLowering {
         function = Function{};
         function.label = functionLabels.at(&source);
         function.exit = {function.label.name + "_return"};
-        nextLabel = 0;
+        nextLabel = 0;//函数内部额外标签编号
         blockLabels.clear();
         values.clear();
         for (std::size_t i = 0; i < source.getBlocks().size(); ++i) {
@@ -325,8 +329,12 @@ class MipsLowering {
         for (std::size_t i = 0; i < source.getArguments().size(); ++i) {
             const auto destination = newRegister();
             values.emplace(source.getArguments()[i].get(), destination);
-            if (i < argumentRegisters.size()) define("move", destination, {Value(argumentRegisters[i])});
-            else define("lw", destination, {Memory{StackAddress{StackArea::Incoming, i - argumentRegisters.size()}}});
+            if (i < argumentRegisters.size()) {//前4个参数用move从$a0-$a3上取
+                define("move", destination, {Value(argumentRegisters[i])});
+            }
+            else {//之后的参数用lw在栈上取
+                define("lw", destination, {Memory{StackAddress{StackArea::Incoming, i - argumentRegisters.size()}}});
+            }
         }
         for (const auto& block : source.getBlocks()) {
             for (const auto& instruction : block->getInstructions()) {
@@ -337,12 +345,14 @@ class MipsLowering {
                 } else if (!instruction->getType()->isVoid()
                            && (!optimize || instruction->getOpcode() != ir::Opcode::ZExt)) {
                     values.emplace(instruction.get(), newRegister());
-                }
+                           }
             }
         }
         for (const auto& block : source.getBlocks()) {
             mark(blockLabels.at(block.get()));
-            for (const auto& instruction : block->getInstructions()) lowerInstruction(*instruction);
+            for (const auto& instruction : block->getInstructions()) {
+                lowerInstruction(*instruction);
+            }
         }
         mark(function.exit);
         return std::move(function);
@@ -359,15 +369,21 @@ public:
             globalLabels.emplace(global.get(), label);
             program.globals.push_back({label, alignment(global->getStoredType()) == 4, global->getInitialValues()});
         }
+
+
         const auto* main = module.getFunction("main");
         functionLabels.emplace(main, Label{"main"});
         for (const auto& source : module.getFunctions()) {
-            if (source.get() == main || source->isDeclaration()) continue;
+            if (source.get() == main || source->isDeclaration()) {
+                continue;
+            }
             functionLabels.emplace(source.get(), Label{"fn_" + std::to_string(functionLabels.size())});
         }
         program.functions.push_back(lowerFunction(*main));
         for (const auto& source : module.getFunctions()) {
-            if (source.get() != main && !source->isDeclaration()) program.functions.push_back(lowerFunction(*source));
+            if (source.get() != main && !source->isDeclaration()) {
+                program.functions.push_back(lowerFunction(*source));
+            }
         }
         return program;
     }
