@@ -13,7 +13,6 @@ namespace mips {
 
 class MipsLowering {
     const ir::Module& module;
-    const bool optimize;
     std::unordered_map<const ir::GlobalVariable*, Label> globalLabels;
     std::unordered_map<const ir::Function*, Label> functionLabels;
     std::unordered_map<const ir::BasicBlock*, Label> blockLabels;
@@ -69,13 +68,6 @@ class MipsLowering {
         }
         const auto found = values.find(value);
         if (found != values.end()) return found->second;
-        if (optimize) {
-            const auto* cast = dynamic_cast<const ir::Instruction*>(value);
-            if (cast && cast->getOpcode() == ir::Opcode::ZExt) {
-                // The source already holds a zero-extended i1 or i8.
-                return read(cast->getOperand(0));
-            }
-        }
         throw std::logic_error("Missing MIPS operand");
     }
 
@@ -105,22 +97,8 @@ class MipsLowering {
         auto right = read(instruction.getOperand(1));
 
         switch (opcode) {
-            case Opcode::Add: case Opcode::Sub: {
-                if (optimize) {
-                    if (opcode == Opcode::Add && std::holds_alternative<std::int64_t>(left)) {
-                        std::swap(left, right);
-                    }
-                    if (const auto* constant = std::get_if<std::int64_t>(&right)) {
-                        const auto immediate = opcode == Opcode::Add ? *constant : -*constant;
-                        if (fitsSignedImmediate(immediate)) {
-                            define("addiu", destination, {left, immediate});
-                            break;
-                        }
-                    }
-                }
-                define(opcode == Opcode::Add ? "addu" : "subu", destination, {left, right});
-                break;
-            }
+            case Opcode::Add: define("addu", destination, {left, right}); break;
+            case Opcode::Sub: define("subu", destination, {left, right}); break;
             case Opcode::Mul: define("mul", destination, {left, right}); break;
             case Opcode::SDiv: case Opcode::SRem: case Opcode::UDiv: case Opcode::URem: {
                 const bool isSigned = opcode == Opcode::SDiv || opcode == Opcode::SRem;
@@ -172,21 +150,9 @@ class MipsLowering {
         auto index = read(instruction.getOperand(1));
         const auto stride = sizeOf(instruction.getType()->getElementType());
         const auto destination = result(instruction);
-        if (const auto* offset = std::get_if<std::int64_t>(&index)) {
-            const auto bytes = *offset * stride;
-            if (bytes == 0) {
-                define("move", destination, {base});
-                return;
-            }
-            if (optimize && fitsSignedImmediate(bytes)) {
-                define("addiu", destination, {base, bytes});
-                return;
-            }
-        }
         if (stride != 1) {
             const auto scaled = newRegister();
-            if (stride == 4) define("sll", scaled, {index, std::int64_t{2}});
-            else define("mul", scaled, {index, Value(stride)});
+            define("mul", scaled, {index, Value(stride)});
             index = scaled;
         }
         define("addu", destination, {base, index});
@@ -299,9 +265,8 @@ class MipsLowering {
                 define("andi", result(instruction), {read(instruction.getOperand(0)), mask(type)});
                 break;
             case Opcode::ZExt:
-                if (!optimize) {
-                    define("move", result(instruction), {read(instruction.getOperand(0))});
-                }
+                // i1 和 i8 的高位已清零，复制源值即可完成零扩展。
+                define("move", result(instruction), {read(instruction.getOperand(0))});
                 break;
             case Opcode::GetElementPtr: lowerGep(instruction); break;
             case Opcode::Call: lowerCall(static_cast<const ir::CallInst&>(instruction)); break;
@@ -342,10 +307,9 @@ class MipsLowering {
                     const auto* type = alloca->getAllocatedType();
                     values.emplace(alloca, StackAddress{StackArea::Local, function.locals.size()});
                     function.locals.push_back({sizeOf(type), alignment(type)});
-                } else if (!instruction->getType()->isVoid()
-                           && (!optimize || instruction->getOpcode() != ir::Opcode::ZExt)) {
+                } else if (!instruction->getType()->isVoid()) {
                     values.emplace(instruction.get(), newRegister());
-                           }
+                }
             }
         }
         for (const auto& block : source.getBlocks()) {
@@ -359,8 +323,7 @@ class MipsLowering {
     }
 
 public:
-    explicit MipsLowering(const ir::Module& module, bool optimize = true)
-        : module(module), optimize(optimize) {}
+    explicit MipsLowering(const ir::Module& module) : module(module) {}
 
     Program lower() {
         Program program;

@@ -6,9 +6,9 @@ import subprocess
 import tempfile
 
 
-def compile_source(compiler, workdir, source, *options):
+def compile_source(compiler, workdir, source):
     (workdir / "testfile.txt").write_bytes(source.read_bytes())
-    result = subprocess.run([compiler, *options], cwd=workdir, stdin=subprocess.DEVNULL,
+    result = subprocess.run([compiler], cwd=workdir, stdin=subprocess.DEVNULL,
                             capture_output=True, timeout=20)
     assert result.returncode == 0, (source.name, result.stderr)
     return (workdir / "error.txt").read_bytes().replace(b"\r\n", b"\n")
@@ -33,7 +33,6 @@ def main():
     compiler, jar = args.compiler.resolve(), args.mars.resolve()
     folder = Path(__file__).resolve().parent
     cases = sorted((folder.parent / "codegen").glob("*.sy")) + sorted(folder.glob("*.sy"))
-    optimization_changed_output = False
     with tempfile.TemporaryDirectory(prefix="compiler-mips-") as directory:
         workdir = Path(directory)
         assembly = workdir / "mips.txt"
@@ -41,25 +40,16 @@ def main():
             infile = case.with_suffix(".in")
             input_data = infile.read_bytes() if infile.exists() else b""
             expected = case.with_suffix(".out").read_bytes().replace(b"\r\n", b"\n")
-            assert not compile_source(compiler, workdir, case, "--no-opt"), case.name
-            baseline = assembly.read_bytes()
-            assert baseline, case.name
-            actual = run_mars(jar, workdir, input_data)
-            assert actual == expected, (case.name, "--no-opt", expected, actual)
             assert not compile_source(compiler, workdir, case), case.name
-            optimized = assembly.read_bytes()
-            optimization_changed_output |= optimized != baseline
+            assert assembly.stat().st_size > 0, case.name
             actual = run_mars(jar, workdir, input_data)
-            assert actual == expected, (case.name, "default", expected, actual)
-            assert not compile_source(compiler, workdir, case, "--opt"), case.name
-            assert assembly.read_bytes() == optimized, (case.name, "--opt")
+            assert actual == expected, (case.name, expected, actual)
             print("PASS", case.stem)
 
         malformed = folder.parent / "parser-combined-errors.sy"
         errors = compile_source(compiler, workdir, malformed)
         assert errors and assembly.read_bytes() == b"", (malformed.name, errors)
-        assert optimization_changed_output, "The optional pass never changed the assembly"
-        print(f"PASS {len(cases)} MARS cases in both modes + stale-output check")
+        print(f"PASS {len(cases)} MARS cases + stale-output check")
 
 
 if __name__ == "__main__":

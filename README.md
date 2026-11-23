@@ -150,7 +150,7 @@ ConstantInt 保存整数位模式：getBits 取得无符号位模式，getSigned
 - **数据和数组。** 全局变量与字符串进入 `.data`。函数的 `alloca` 对象放进当前栈帧。`getelementptr` 按元素大小缩放下标，`char` 使用 `lbu/sb`，`int` 使用 `lw/sw`。
 - **控制流。** 基本块对应汇编标签。`phi` 在进入目标块的边上复制，先暂存所有来源，再写入目标，避免回边上的复制互相覆盖。
 - **函数调用。** 前四个实参使用 `$a0–$a3`，其余放入调用者的栈帧，返回值用 `$v0`。调用其他函数的普通函数保存 `$ra`，因此递归每一层都有独立的局部对象和返回地址。课程 I/O 函数映射到 MARS 系统调用。
-- **栈布局与优化。** 编译器默认复用已经零扩展的值，用 `addiu` 处理可编码的加减常量和数组偏移，再删除跳向紧邻标签的无条件跳转。`LocalRegisterAllocator` 用 `$t3–$t8` 保存基本块内的中间值。跨控制流边、跨调用存活的值，以及寄存器不足时溢出的值仍用栈槽。`MipsPrinter` 计算剩余栈槽和局部对象的偏移，并展开超出 16 位立即数范围的地址。`--no-opt` 使用基线模式，也可用 `--opt` 显式开启优化。
+- **栈布局。** 每个虚拟寄存器使用独立的栈槽。`MipsPrinter` 在输出指令时加载所需的中间值，并将结果写回对应栈槽。它也负责计算局部对象和栈上传递参数的偏移，并展开超出 16 位立即数范围的地址。
 
 在 `code` 目录下用 PowerShell 编译和运行。
 
@@ -160,7 +160,7 @@ g++ -std=c++17 -O2 -I. -Ifront-end Compile.cpp front-end/Lexer.cpp -o Compiler.e
 java -jar ../mars-2026-BUAA.jar --no-copyright --messages-to-stderr mips.txt
 ```
 
-运行 MIPS 回归测试时，脚本会用独立的临时目录比较两种模式的标准输出。
+MIPS 回归测试在独立的临时目录中生成并执行汇编，将程序的标准输出与预期结果比较。
 
 ```powershell
 python test-case/mips/run-mips-tests.py --compiler .\Compiler.exe --mars ../mars-2026-BUAA.jar

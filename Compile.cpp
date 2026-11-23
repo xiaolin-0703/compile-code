@@ -3,7 +3,6 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <string_view>
 
 #include "compileError.hpp"
 #include "Visitor.hpp"
@@ -13,20 +12,12 @@
 #include "middle-end/output/IRPrinter.hpp"
 #include "middle-end/output/IRVerifier.hpp"
 #include "back-end/lowering/MipsLowering.hpp"
-#include "back-end/optimize/MipsOptimizer.hpp"
 #include "back-end/output/MipsPrinter.hpp"
-#include "back-end/regalloc/LocalRegisterAllocator.hpp"
 
-int main(int argc, char* argv[]) {
-    bool optimize = true;
-    for (int i = 1; i < argc; ++i) {
-        const std::string_view option(argv[i]);
-        if (option == "--opt") optimize = true;
-        else if (option == "--no-opt") optimize = false;
-        else {
-            std::cerr << "用法：Compiler [--opt | --no-opt]\n";
-            return 1;
-        }
+int main(int argc, char*[]) {
+    if (argc != 1) {
+        std::cerr << "用法：Compiler\n";
+        return 1;
     }
 
     // 即使读取源文件或前端处理失败，也不会遗留上次生成的目标代码。
@@ -112,11 +103,7 @@ int main(int argc, char* argv[]) {
         ir::IRGenerator generator(context, vistor.getSemanticModel());
         ir::Module& module = generator.generate(ast);
         ir::IRVerifier().verify(module);
-        mips::Program program = mips::MipsLowering(module, optimize).lower();
-        if (optimize) {
-            mips::optimize(program);
-            mips::LocalRegisterAllocator().run(program);
-        }
+        mips::Program program = mips::MipsLowering(module).lower();
 
         std::ostringstream irText;
         ir::IRPrinter().print(module, irText);
